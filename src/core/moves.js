@@ -27,6 +27,18 @@ mv('sweep', { name: '다리 후리기', level: 'low', startup: 18, active: 5, re
 mv('spin', { name: '회전베기', level: 'mid', startup: 17, active: 5, recovery: 22, dmg: 13, range: 1.6 + R, arc: 1.45, track: 0.15, lunge: 0.3, hitstun: 22, blockstun: 12, chip: 6, stam: 11, push: 3.5, hitstop: 9, limb: 'blade' }); // (돌려차기)
 mv('helm', { name: '투구 깨기', level: 'mid', startup: 24, active: 4, recovery: 26, dmg: 22, range: 1.45 + R, arc: 0.7, track: 0.06, lunge: 0.6, hitstun: 30, blockstun: 20, chip: 32, stam: 22, push: 4, bpush: 3, hitstop: 15, limb: 'blade', knockdown: true, armor: [5, 24] }); // (망치)
 
+// 칼싸움 템포: 주먹 기준 프레임을 칼에 맞게 늘림 (발생·후딜·경직을 같은 비율로 → 유불리 구조는 유지)
+export const TEMPO = { startup: 1.35, active: 1.2, recovery: 1.35, stun: 1.35 };
+for (const m of Object.values(MV)) {
+  m.startup = Math.round(m.startup * TEMPO.startup);
+  m.active = Math.round(m.active * TEMPO.active);
+  m.recovery = Math.round(m.recovery * TEMPO.recovery);
+  m.hitstun = Math.round(m.hitstun * TEMPO.stun);
+  m.blockstun = Math.round(m.blockstun * TEMPO.stun);
+  if (m.armor) m.armor = [Math.round(m.armor[0] * TEMPO.startup), Math.round(m.armor[1] * TEMPO.startup)];
+  m.total = m.startup + m.active + m.recovery;
+}
+
 // 커맨드: 스틱 방향(n 중립 / f 앞 / b 뒤 / s 옆) + 긋기(t h u d l)
 export const CMD = { t: 'stab', h: 'slash_h', u: 'slash_up', d: 'slash_down', l: 'slash_low', ft: 'thrust', bl: 'sweep', sh: 'spin', bd: 'helm' };
 // 긋기 이름 (화면 표시용)

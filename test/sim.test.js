@@ -35,7 +35,7 @@ test('찌르기(탭): 발생 7프레임째에 맞음', () => {
 
 test('히트스톱 동안 시간이 멈춤', () => {
   const s = setup();
-  run(s, 8, (i) => (i === 0 ? press('t') : inp()));
+  run(s, MV.stab.startup + 1, (i) => (i === 0 ? press('t') : inp()));
   assert.equal(s.hitstop, MV.stab.hitstop);
   const f = s.f[1].f;
   run(s, MV.stab.hitstop);

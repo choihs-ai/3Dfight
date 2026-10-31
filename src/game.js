@@ -13,7 +13,7 @@ export class Game {
   constructor({ view, hud, input }) {
     this.view = view; this.hud = hud; this.input = input;
     this.mode = 'demo'; this.diff = 'normal'; this.auto = false; this.paused = false;
-    this.slow = 0; this.t = 0; this.acc = 0;
+    this.slow = 0; this.t = 0; this.acc = 0; this.speed = 1;
     this.stats = { hits: 0, maxCombo: 0, parries: 0 };
     this.sim = null; this.ctrl = [null, null];
     this.chars = [CHARACTERS[0], CHARACTERS[1]];
@@ -146,7 +146,7 @@ export class Game {
   // requestAnimationFrame 마다
   frame(dt) {
     if (!this.paused && !this.freeze) { // freeze: 테스트용 (입력은 받고 시간만 멈춤)
-      const ts = this.slow > 0 ? 0.3 : 1;
+      const ts = (this.slow > 0 ? 0.3 : 1) * this.speed;
       if (this.slow > 0) this.slow -= dt;
       this.t += dt * ts; this.acc += dt * ts;
       let n = 0;

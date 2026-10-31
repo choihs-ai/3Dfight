@@ -3,9 +3,9 @@ import { DT, MAXHP, clamp, turnTo } from './util.js';
 import { MV, resolveMove } from './moves.js';
 
 // 흐름 연계: 어떤 베기든 지속 끝 +FLOW_WINDOW 프레임 안에 다음 입력이 들어오면 후딜 없이 이어짐
-export const FLOW_WINDOW = 10;
+export const FLOW_WINDOW = 12;
 export const MAX_CHAIN = 5;          // 한 번에 이어지는 최대 기술 수
-export const FLOW_SKIP = 0.35;       // 이어지는 기술은 준비 동작(발생)의 앞 35%를 건너뜀
+export const FLOW_SKIP = 0.25;       // 이어지는 기술은 준비 동작(발생)의 앞 25%를 건너뜀
 
 export class Fighter {
   constructor(idx, sim) {

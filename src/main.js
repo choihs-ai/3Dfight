@@ -34,6 +34,13 @@ document.querySelectorAll('#diffRow .ui').forEach((b) => b.addEventListener('cli
   document.querySelectorAll('#diffRow .ui').forEach((x) => x.classList.remove('sel'));
   b.classList.add('sel'); game.diff = b.dataset.d; Sound.init(); Sound.muted = false; Sound.play('ui'); Sound.muted = game.mode === 'demo';
 }));
+// 게임 속도 (폰에서 직접 비교용) — 전투 로직은 그대로, 1초에 진행하는 프레임 수만 바뀜
+const SPEEDS = [['보통', 1], ['느리게', 0.85], ['아주 느리게', 0.72], ['빠르게', 1.15]];
+let speedI = 0;
+try { speedI = Math.max(0, SPEEDS.findIndex((x) => String(x[1]) === localStorage.getItem('lof.speed'))); } catch (_) { /* */ }
+const applySpeed = () => { game.speed = SPEEDS[speedI][1]; $('#speedBtn').textContent = '속도: ' + SPEEDS[speedI][0]; };
+applySpeed();
+$('#speedBtn').addEventListener('click', () => { speedI = (speedI + 1) % SPEEDS.length; applySpeed(); try { localStorage.setItem('lof.speed', String(SPEEDS[speedI][1])); } catch (_) { /* */ } });
 let movesFrom = '#title';
 // 캐릭터 선택
 let pick = 0;

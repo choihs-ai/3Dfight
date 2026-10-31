@@ -47,12 +47,16 @@ export function moveCut(styleId, moveId, uid) {
 }
 
 // 기술 진행 프레임 f → 클립 시간
+// 모션이 빨리 감기듯 보이지 않게 재생 속도 상한(MAX_RATE배): 넘치면 준비 동작 앞부분/마무리 끝부분을 잘라냄
+export const MAX_RATE = 1.6;
 export function moveClipTime(c, m, f) {
   const S = m.startup, A = m.active, R = m.total - S - A;
-  if (f <= S) return c.t0 + (c.hit - c.t0) * (f / S);
+  const t0 = Math.max(c.t0, c.hit - (MAX_RATE * S) / 60);
+  if (f <= S) return t0 + (c.hit - t0) * (f / S);
   const h2 = Math.min(c.t1, c.hit + 0.06);
   if (f <= S + A) return c.hit + (h2 - c.hit) * ((f - S) / A);
-  return h2 + (c.t1 - h2) * Math.min(1, (f - S - A) / Math.max(1, R));
+  const t1 = Math.min(c.t1, h2 + (MAX_RATE * R) / 60);
+  return h2 + (t1 - h2) * Math.min(1, (f - S - A) / Math.max(1, R));
 }
 
 // 한손으로 쥐는 모션은 칼 방향이 다름 → 오른손 뼈 기준 칼날 방향 덮어쓰기
