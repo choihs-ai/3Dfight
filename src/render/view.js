@@ -99,7 +99,7 @@ export class View {
       const F = sim.f[i], fx = this.fx[i];
       if (fx.flash > 0) fx.flash--;
       if (fx.hpLag > F.hp) { if (fx.lagDelay > 0) fx.lagDelay--; else fx.hpLag = Math.max(F.hp, fx.hpLag - 0.7); } else fx.hpLag = F.hp;
-      fx.anim.step(F, t);
+      fx.anim.step(F, t, sim);
       // 휘두르는 구간: 발생 3프레임 전 ~ 지속 끝 +2
       const m = F.state === 'attack' && F.move;
       const swing = !!m && F.f >= m.startup - 3 && F.f <= m.startup + m.active + 2;

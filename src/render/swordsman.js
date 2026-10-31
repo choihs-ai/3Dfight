@@ -5,7 +5,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { DT, lerp, turnTo } from '../core/util.js';
 import { GB } from './geom.js';
-import { MOVE_CLIPS, moveClipTime, BLADE_DIR_BY_CLIP } from '../anim/clipMap.js';
+import { STYLES, moveCut, moveClipTime, BLADE_DIR_BY_CLIP } from '../anim/clipMap.js';
 
 let MODEL = null;
 export function loadSwordsman(url) {
@@ -208,52 +208,67 @@ export class SwordsmanRig {
   // ---------- 애니메이터 ----------
   reset() {
     this.cur = null; this.prev = null; this.alpha = 1; this.key = '';
-    this.locoT = 0; this.walkF = 0; this.walkS = 0; this.loopT = 0; this.lastState = ''; this.lastF = 0;
+    this.fidgetN = 0; this.locoT = 0; this.walkF = 0; this.walkS = 0; this.loopT = 0; this.lastState = ''; this.lastF = 0;
     this.downT0 = 0; this.rootH = 0.95; this.visYaw = undefined;
   }
   dur(n) { return this.clips[n] ? this.clips[n].duration : 1; }
   // 이번 프레임 목표 자세 [ [클립, 시간, 가중치], ... ] 와 전환 키
-  target(F) {
-    const s = F.state, f = F.f;
+  target(F, sim) {
+    const s = F.state, f = F.f, st = STYLES[this.ch.id] || STYLES.fire;
     switch (s) {
       case 'idle': {
+        // 라운드 시작: 허리 칼집에서 칼을 뽑음 (칼 넣기 모션을 거꾸로)
+        if (sim && sim.phase === 'intro') {
+          const D = this.dur('withdraw') - 0.02, t = Math.max(0, D - (sim.phaseT / 55) * D);
+          return { key: 'draw', L: [['withdraw', t, 1]], sheathed: t > 1.0, fade: 8 };
+        }
         if (F.guard) return { key: F.crouch ? 'crouch' : 'guard', L: [[F.crouch ? 'crouch' : 'guard', this.loopT % this.dur(F.crouch ? 'crouch' : 'guard'), 1]] };
         const aF = this.walkF, aS = this.walkS, tot = Math.min(1, Math.abs(aF) + Math.abs(aS));
-        const L = [['idle', this.loopT % this.dur('idle'), 1 - tot]];
+        // 오래 서 있으면 대기 동작 (칼 고쳐 잡기 등) 한 번
+        if (tot < 0.05 && F.idleF > 200) {
+          const k = Math.floor((F.idleF - 200) / 480), n = st.fidget[(k + this.fidgetN) % st.fidget.length], ft = ((F.idleF - 200) % 480) / 60;
+          if (ft < this.dur(n) - 0.05) return { key: 'fidget' + k, L: [[n, ft, 1]], fade: 12 };
+        }
+        const idle = st.idle, L = [[idle, this.loopT % this.dur(idle), 1 - tot]];
         if (tot > 0.01) {
           const k = tot / (Math.abs(aF) + Math.abs(aS));
           const lt = (n) => this.locoT % this.dur(n);
-          if (aF > 0) L.push(['walk_f', lt('walk_f'), aF * k]); else if (aF < 0) L.push(['walk_b', lt('walk_b'), -aF * k]);
+          // 멀리서 앞으로 다가갈 때는 달리기
+          const op = sim && sim.f[1 - F.idx], far = op && Math.hypot(op.x - F.x, op.z - F.z) > 3.4;
+          if (aF > 0) L.push([far ? 'run' : 'walk_f', lt(far ? 'run' : 'walk_f'), aF * k]); else if (aF < 0) L.push(['walk_b', lt('walk_b'), -aF * k]);
           if (aS > 0) L.push(['strafe_r', lt('strafe_r'), aS * k]); else if (aS < 0) L.push(['strafe_l', lt('strafe_l'), -aS * k]);
         }
-        return { key: 'loco', L };
+        return { key: 'loco', L, fade: 6 };
       }
-      case 'attack': { const c = MOVE_CLIPS[F.move.id]; return { key: 'atk' + F.moveUid, L: [[c.clip, moveClipTime(F.move, f), 1]], fade: 3 }; }
+      case 'attack': { const c = moveCut(this.ch.id, F.move.id, F.moveUid); return { key: 'atk' + F.moveUid, L: [[c.clip, moveClipTime(c, F.move, f), 1]], fade: 3 }; }
       case 'hitstun': {
-        const n = F.hitLevel === 'high' ? 'hit_high' : 'hit_mid';
+        const n = F.hitLevel === 'high' ? 'hit_head' : F.hitLevel === 'low' ? 'hit_low' : 'hit_body';
         return { key: 'hit', L: [[n, Math.min(1, f / Math.max(1, F.stun)) * this.dur(n) * 0.7, 1]], fade: 2 };
       }
       case 'blockstun': { const n = F.crouch ? 'crouch_block_hit' : 'block_hit'; return { key: n, L: [[n, Math.min(1, f / Math.max(1, F.stun)) * this.dur(n) * 0.8, 1]], fade: 2 }; }
-      case 'parried': return { key: 'parried', L: [['hit_mid', Math.min(1, f / 52) * this.dur('hit_mid'), 1]], fade: 3 };
+      case 'parried': return { key: 'parried', L: [['hit_head', Math.min(1, f / 52) * this.dur('hit_head'), 1]], fade: 3 };
       case 'launched': return { key: 'death', L: [['death', Math.min(0.85, f / 60), 1]], fade: 3 };
       case 'down': case 'ko': {
-        if (this.lastState !== 'down' && this.lastState !== 'ko') this.downT0 = this.cur && this.cur.L[0][0] === 'death' ? this.cur.L[0][1] : 0.6;
-        return { key: 'death', L: [['death', Math.min(this.dur('death') - 0.01, this.downT0 + (f / 60) * 1.4), 1]] };
+        // KO는 가끔 앞으로 고꾸라지는 모션
+        const n = s === 'ko' && F.launchUid % 2 === 1 ? 'death2' : 'death';
+        if (this.lastState !== 'down' && this.lastState !== 'ko') this.downT0 = this.cur && this.cur.L[0][0] === n ? this.cur.L[0][1] : n === 'death2' ? 0.3 : 0.6;
+        return { key: n, L: [[n, Math.min(this.dur(n) - 0.01, this.downT0 + (f / 60) * 1.4), 1]], fade: 6 };
       }
       case 'getup': return { key: 'death', L: [['death', (this.dur('death') - 0.01) * (1 - Math.min(1, f / 20)), 1]] };
       case 'roll': return { key: 'roll', L: [['roll', 0.55 + Math.min(1, f / 26) * 0.95, 1]], fade: 2 };
-      case 'win': return { key: 'win', L: [['withdraw', Math.min(this.dur('withdraw') - 0.01, f / 60), 1]], fade: 6 };
+      case 'win': return { key: 'win', L: [['withdraw', Math.min(this.dur('withdraw') - 0.01, f / 60), 1]], fade: 6, sheathed: f > 62 };
     }
-    return { key: 'idle', L: [['idle', 0, 1]] };
+    return { key: 'idle', L: [[st.idle, 0, 1]] };
   }
-  step(F) {
+  step(F, _t, sim) {
+    this.sim = sim;
     // 걷기 블렌드 (ProcAnimator와 같은 규칙)
     if (F.wk === 1) { this.walkF *= 0.75; this.walkS *= 0.75; }
     else if (F.wk === 2) { this.walkF *= 0.7; this.walkS *= 0.7; }
     else if (F.wk === 3) { this.walkF = lerp(this.walkF, F.wmy, 0.3); this.walkS = lerp(this.walkS, F.wmx, 0.3); }
     this.locoT += DT * (1 + 1.4 * Math.min(1, Math.abs(this.walkF) + Math.abs(this.walkS)));
     this.loopT += DT;
-    const T = this.target(F);
+    const T = this.target(F, sim);
     const restarted = F.state === this.lastState && F.f < this.lastF && F.state !== 'idle';
     if (T.key !== this.key || restarted) {
       this.prev = this.cur; this.key = T.key; this.alpha = this.prev ? 0 : 1; this.fadeN = T.fade || 5;
@@ -275,7 +290,7 @@ export class SwordsmanRig {
     this.mixer.update(0);
   }
   fk(F) {
-    if (!this.cur) this.cur = this.target(F);
+    if (!this.cur) this.cur = this.target(F, this.sim);
     this.apply();
     this.group.position.set(F.x, F.state === 'launched' ? F.y : 0, F.z);
     this.group.rotation.set(0, this.visYaw === undefined ? F.yaw : this.visYaw, 0);
@@ -285,7 +300,7 @@ export class SwordsmanRig {
     if (this.cur) scan(this.cur.L, this.prev && this.alpha < 1 ? this.alpha : 1);
     if (this.prev && this.alpha < 1) scan(this.prev.L, 1 - this.alpha);
     if (adj) this.bladePivot.quaternion.identity().slerp(adj, Math.min(1, w)); else this.bladePivot.quaternion.identity();
-    this.bladePivot.visible = !(F.state === 'win' && F.f > 62);
+    this.bladePivot.visible = !(this.cur && this.cur.sheathed);
     this.group.updateMatrixWorld(true);
     const hp = this.bone('Hips').getWorldPosition(TMP);
     this.rootH = hp.y; this.root[12] = hp.x; this.root[13] = hp.y; this.root[14] = hp.z;

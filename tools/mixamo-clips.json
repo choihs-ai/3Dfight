@@ -10,8 +10,6 @@
   "crouch": "great sword crouching (3)",
   "block_hit": "great sword impact",
   "crouch_block_hit": "great sword impact (4)",
-  "hit_high": "great sword impact (2)",
-  "hit_mid": "great sword impact (3)",
   "death": "two handed sword death",
   "power_up": "great sword power up",
   "draw": "draw a great sword 2",
@@ -27,5 +25,14 @@
   "slide": "great sword slide attack",
   "stab": "Stabbing 2",
   "roll": "Stand To Roll",
-  "withdraw": "Withdrawing Sword"
+  "withdraw": "Withdrawing Sword",
+  "idle2": "great sword idle (2)",
+  "idle3": "great sword idle (3)",
+  "idle4": "great sword idle (4)",
+  "idle5": "great sword idle (5)",
+  "hit_head": "great sword impact (3)",
+  "hit_body": "great sword impact (2)",
+  "hit_low": "great sword impact (5)",
+  "death2": "two handed sword death (2)",
+  "inward": "Stable Sword Inward Slash"
 }
