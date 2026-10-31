@@ -9,6 +9,7 @@ import { addLights, FOGC, FOG } from './lighting.js';
 import { ProcAnimator } from '../anim/procedural.js';
 import { SwordTrail } from './trails.js';
 import { CHARACTERS } from '../data/characters.js';
+import { SwordsmanRig, loadSwordsman, swordsmanReady } from './swordsman.js';
 
 THREE.ColorManagement.enabled = false;
 
@@ -26,18 +27,28 @@ export class View {
     this.camera = new LockOnCamera();
     this.fx = [0, 1].map((i) => ({ anim: new ProcAnimator(i), flash: 0, flashCol: [1, 1, 1], hpLag: MAXHP, lagDelay: 0 }));
     this.setCharacters([CHARACTERS[1], CHARACTERS[0]]);
+    // Mixamo 모션 검객 모델 (불러오기 전·실패 시에는 박스 검객으로 표시)
+    this.modelState = 'loading';
+    loadSwordsman(import.meta.env.BASE_URL + 'models/swordsman.glb').then(() => {
+      this.modelState = 'ready';
+      this.setCharacters(this.fx.map((f) => f.ch), true);
+      if (this.sim) this.fx.forEach((f, i) => { f.anim.reset(); f.anim.fk(this.sim.f[i]); });
+    }).catch((e) => { console.warn('검객 모델을 불러오지 못해 박스 검객으로 표시합니다', e); this.modelState = 'failed'; });
     this.emit = [0, 0, 0];
     this.shadows = [[0, 0, 0.62], [0, 0, 0.62]];
     this.resize();
   }
   // 원소 캐릭터 지정 (외형 + 칼 궤적 색)
-  setCharacters(chars) {
+  setCharacters(chars, force = false) {
     chars.forEach((ch, i) => {
       const f = this.fx[i];
-      if (f.ch === ch) return;
+      if (f.ch === ch && !force) return;
       if (f.char) f.char.dispose();
       if (f.trail) f.trail.dispose();
-      f.ch = ch; f.char = new BoxCharacter(this.scene, ch); f.trail = new SwordTrail(this.scene, ch);
+      f.ch = ch; f.trail = new SwordTrail(this.scene, ch);
+      if (swordsmanReady()) { f.char = f.anim = new SwordsmanRig(this.scene, ch); }
+      else { f.anim = new ProcAnimator(i); f.char = new BoxCharacter(this.scene, ch); }
+      if (this.sim) f.anim.fk(this.sim.f[i]);
     });
   }
   resize() {
@@ -48,6 +59,7 @@ export class View {
     this.camera.cam.aspect = W / H;
   }
   resetRound(sim) {
+    this.sim = sim;
     this.fx.forEach((f, i) => { f.anim.reset(); f.anim.fk(sim.f[i]); f.trail.clear(); f.flash = 0; f.hpLag = MAXHP; f.lagDelay = 0; });
     this.camera.snap = true;
   }
@@ -58,6 +70,7 @@ export class View {
 
   // sim.step() 직후 매번 호출 (advanced=false면 히트스톱으로 멈춘 프레임)
   onStep(sim, advanced, t) {
+    this.sim = sim;
     this.particles.flames(this.arena.braziers);
     this.particles.embers();
     this.particles.update(1 / 60);

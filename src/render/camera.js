@@ -20,9 +20,9 @@ export class LockOnCamera {
       let dx = E.x - P.x, dz = E.z - P.z;
       const d = Math.hypot(dx, dz) || 1; dx /= d; dz /= d;
       const rx = -dz, rz = dx;
-      const back = (port ? 4.3 : 3.1) + Math.max(0, d - 3) * 0.25, side = port ? 0.85 : 0.95, up = port ? 2.55 : 1.9; // 세로 화면에서 내 캐릭터가 상대를 가리지 않게 어깨 쪽으로 더 비킴
+      const back = (port ? 4.6 : 3.4) + Math.max(0, d - 3) * 0.25, side = port ? 1.05 : 1.3, up = port ? 2.7 : 2.05; // 내 캐릭터가 상대를 가리지 않게 어깨 쪽으로 비킴
       eye = [P.x - dx * back + rx * side, up + Math.max(0, pRootH - 0.95) * 0.4, P.z - dz * back + rz * side];
-      const lk = port ? 0.72 : 0.62;
+      const lk = port ? 0.78 : 0.7;
       look = [lerp(P.x, E.x, lk), (port ? 0.85 : 1.05) + Math.min(E.y, 1.5) * 0.35, lerp(P.z, E.z, lk)];
     }
     if (window.__cam) { eye = window.__cam[0]; look = window.__cam[1]; }

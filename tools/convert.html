@@ -1,0 +1,72 @@
+<!doctype html><html><body>
+<script type="importmap">{"imports":{"three":"/three/build/three.module.js","three/addons/":"/three/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+const loader = new FBXLoader();
+const load = (name) => new Promise((ok, err) => loader.load('/fbx/' + encodeURIComponent(name) + '.fbx', ok, undefined, err));
+const S = 0.01; // cm → m
+window.convert = async (spec) => {
+  let skeleton = null;
+  const clips = [], report = [];
+  for (const [name, file] of Object.entries(spec)) {
+    if (name.startsWith('_')) continue;
+    const o = await load(file);
+    if (!skeleton) skeleton = o;
+    const a = o.animations[0];
+    a.name = name;
+    // 회전 + 엉덩이 위치만 남김
+    a.tracks = a.tracks.filter((t) => t.name.endsWith('.quaternion') || t.name === 'mixamorigHips.position');
+    for (const t of a.tracks) {
+      if (t.name !== 'mixamorigHips.position') continue;
+      const v = t.values;
+      for (let i = 0; i < v.length; i += 3) { v[i] = 0; v[i + 1] *= S; v[i + 2] = 0; } // 루트 모션 제거, 높이만 유지
+    }
+    // 손가락은 칼 쥔 모양으로 고정 (첫 프레임만) — 용량 절반 가까이 절약
+    for (const t of a.tracks) if (/Hand(Thumb|Index|Middle|Ring|Pinky)/.test(t.name) && t.times.length > 1) { t.times = t.times.slice(0, 1); t.values = t.values.slice(0, 4); }
+    // 변하지 않는 회전 트랙은 키 1개로 줄임
+    for (const t of a.tracks) {
+      const v = t.values, n = t.getValueSize();
+      let same = true;
+      for (let i = n; i < v.length && same; i++) if (Math.abs(v[i] - v[i % n]) > 1e-4) same = false;
+      if (same && t.times.length > 2) { t.times = t.times.slice(0, 1); t.values = v.slice(0, n); }
+    }
+    // 키프레임 줄이기: 앞뒤 키로 선형 보간해도 오차가 작으면 그 키를 뺌 (연속으로 빼도 오차 누적 없게 원본과 비교)
+    for (const t of a.tracks) {
+      const n = t.getValueSize(), T = t.times, V = t.values, tol = n === 4 ? 0.0015 : 0.002;
+      if (T.length < 3) continue;
+      const keep = [0];
+      for (let i = 1; i < T.length - 1; i++) {
+        const a0 = keep[keep.length - 1];
+        // i+1까지 이어서 직선으로 보간했을 때 a0..i+1 사이 모든 원본 키의 오차 확인
+        let ok = true;
+        for (let j = a0 + 1; j <= i && ok; j++) {
+          const u = (T[j] - T[a0]) / (T[i + 1] - T[a0]);
+          for (let k = 0; k < n; k++) { const y = V[a0 * n + k] + (V[(i + 1) * n + k] - V[a0 * n + k]) * u; if (Math.abs(y - V[j * n + k]) > tol) { ok = false; break; } }
+        }
+        if (!ok) keep.push(i);
+      }
+      keep.push(T.length - 1);
+      if (keep.length < T.length) {
+        const nt = new Float32Array(keep.length), nv = new Float32Array(keep.length * n);
+        keep.forEach((i, j) => { nt[j] = T[i]; for (let k = 0; k < n; k++) nv[j * n + k] = V[i * n + k]; });
+        t.times = nt; t.values = nv;
+      }
+    }
+    clips.push(a);
+    report.push(`${name}: ${a.duration.toFixed(2)}s`);
+  }
+  // 뼈대만 담은 장면 (단위 m)
+  const root = new THREE.Group(); root.name = 'swordsman';
+  const hips = skeleton.getObjectByName('mixamorigHips');
+  const clone = hips.clone(true);
+  clone.traverse((b) => { b.position.multiplyScalar(S); });
+  root.add(clone);
+  const glb = await new GLTFExporter().parseAsync(root, { binary: true, animations: clips, onlyVisible: false });
+  const bytes = new Uint8Array(glb);
+  let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return { b64: btoa(s), report };
+};
+window.ready = true;
+</script></body></html>

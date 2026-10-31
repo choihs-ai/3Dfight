@@ -6,6 +6,7 @@ import { Sound } from './audio/sound.js';
 import { show } from './ui/hud.js';
 import { CHARACTERS } from './data/characters.js';
 
+export const DIFFSHORT = { practice: '연습', easy: '쉬움', normal: '보통', hard: '어려움' };
 export const DIFFNAME = { practice: '연습 인형', easy: 'CPU · 쉬움', normal: 'CPU · 보통', hard: 'CPU · 어려움' };
 
 export class Game {
@@ -45,7 +46,7 @@ export class Game {
     this.newSim(this.mode);
     this.ctrl = [this.auto ? new AI(this.sim, 0, 'normal') : null, new AI(this.sim, 1, this.diff)];
     show('#title', false); show('#result', false); show('#hud', true); show('#controls', true); show('#pauseBtn', true);
-    document.querySelector('#cpuName').textContent = `${this.chars[1].name} · ${DIFFNAME[this.diff]}`;
+    document.querySelector('#cpuName').textContent = `${this.chars[1].name} · ${DIFFSHORT[this.diff]}`;
     this.input.joyHome();
   }
   showResult() {

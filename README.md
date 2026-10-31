@@ -50,3 +50,13 @@ npm run e2e      # 빌드본을 실제 브라우저(Playwright)로 띄워 CPU끼
 
 `src/data/characters.js` — 불 아카네(화염류) · 물 미즈하(수류) · 번개 라이카(뇌명류) · 바람 하야테(질풍류).
 지금은 외형·칼 궤적·타격 이펙트가 다르고 기술표는 공통입니다.
+
+## 캐릭터 모션 (Mixamo)
+
+- 원본: `assets-src/Great Sword Pack.zip` (Mixamo Great Sword Pack, X Bot 기준, 60fps)
+- 변환: zip을 풀고 `node tools/convert-mixamo.mjs <FBX 폴더>` → `public/models/swordsman.glb` (뼈대 + 클립, 약 1.3MB)
+  - 어떤 FBX를 어떤 클립으로 쓸지: `tools/mixamo-clips.json`
+  - 손가락 고정, 루트 이동 제거(이동은 게임 로직이 담당), 키프레임 줄이기
+- 기술 ↔ 클립 타이밍(시작/칼이 닿는 순간/끝): `src/anim/clipMap.js`
+- 몸(하오리·하카마·머리·카타나)은 `src/render/swordsman.js`에서 코드로 만들어 뼈에 붙임 (툰 셰이딩 + 외곽선)
+- 모델을 못 불러오면 박스 검객(코드 자세)으로 자동 대체
