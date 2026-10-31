@@ -3,9 +3,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { DT, clamp, lerp } from '../core/util.js';
+import { DT, lerp, turnTo } from '../core/util.js';
 import { GB } from './geom.js';
-import { MOVE_CLIPS, moveClipTime } from '../anim/clipMap.js';
+import { MOVE_CLIPS, moveClipTime, BLADE_DIR_BY_CLIP } from '../anim/clipMap.js';
 
 let MODEL = null;
 export function loadSwordsman(url) {
@@ -131,16 +131,22 @@ export class SwordsmanRig {
       limb(s + 'ForeArm', 'Hand', 'wrap', 0.05, 0.045, -0.12, 0.12);
       add(s + 'Hand', 'skin', (g) => g.box(0, 0.06, 0, 0.08, 0.11, 0.05));
     }
+    // 칼집 (왼쪽 허리, 뒤로 비스듬히)
+    {
+      const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0.12, -0.4, -1).normalize());
+      add('Hips', 'tsuka', (g) => { const n0 = g.v.length; g.box(0, 0, 0.38, 0.045, 0.05, 0.86); g.rot = g.rot || []; g.rot.push([n0, g.v.length, q, new THREE.Vector3(0.18, 0.08, 0.1)]); });
+      add('Hips', 'tsuba', (g) => { const n0 = g.v.length; g.box(0, 0, 0.0, 0.05, 0.055, 0.04); g.rot = g.rot || []; g.rot.push([n0, g.v.length, q, new THREE.Vector3(0.18, 0.08, 0.1)]); });
+    }
     // 카타나 (오른손)
-    add('RightHand', 'tsuka', (g) => { const n0 = g.v.length; g.box(0, 0, -0.09, 0.034, 0.04, 0.3); g.rot = g.rot || []; g.rot.push([n0, g.v.length, BLADE_Q, GRIP]); });
-    add('RightHand', 'tsuba', (g) => { const n0 = g.v.length; g.box(0, 0, 0.075, 0.095, 0.085, 0.016); g.rot = g.rot || []; g.rot.push([n0, g.v.length, BLADE_Q, GRIP]); });
+    add('RightHand', 'blade_tsuka', (g) => { const n0 = g.v.length; g.box(0, 0, -0.09, 0.034, 0.04, 0.3); g.rot = g.rot || []; g.rot.push([n0, g.v.length, BLADE_Q]); });
+    add('RightHand', 'blade_tsuba', (g) => { const n0 = g.v.length; g.box(0, 0, 0.075, 0.095, 0.085, 0.016); g.rot = g.rot || []; g.rot.push([n0, g.v.length, BLADE_Q]); });
     add('RightHand', 'blade', (g) => {
       const n0 = g.v.length, seg = 5, L0 = BLADE.base - 0.06, L1 = BLADE.tip;
       for (let i = 0; i < seg; i++) {
         const z0 = L0 + ((L1 - L0) * i) / seg, z1 = L0 + ((L1 - L0) * (i + 1)) / seg, zc = (z0 + z1) / 2;
         g.box(0, 0.03 * zc * zc, zc, 0.009, i === seg - 1 ? 0.022 : 0.034, z1 - z0 + 0.004);
       }
-      g.rot = g.rot || []; g.rot.push([n0, g.v.length, BLADE_Q, GRIP]);
+      g.rot = g.rot || []; g.rot.push([n0, g.v.length, BLADE_Q]);
     });
     // ---- 모든 부품을 스킨 메시 하나로 합침 (그리기 호출: 몸 1 + 외곽선 1 + 칼 1) ----
     this.group.updateMatrixWorld(true);
@@ -160,7 +166,7 @@ export class SwordsmanRig {
           g.n[i] = nv.x; g.n[i + 1] = nv.y; g.n[i + 2] = nv.z;
         }
       }
-      if (color === 'blade') { bladeParts.push({ bone, g }); continue; }
+      if (color.startsWith('blade')) { bladeParts.push({ color, g }); continue; }
       // 기본 자세(바인드 포즈) 월드 좌표로 옮겨서 합침
       const M = bone.matrixWorld; nm.getNormalMatrix(M);
       c.set(C[color]);
@@ -187,14 +193,23 @@ export class SwordsmanRig {
     const outline = new THREE.SkinnedMesh(merged, OUTLINE);
     for (const m of [body, outline]) { m.frustumCulled = false; this.inner.add(m); m.bind(this.skeleton, new THREE.Matrix4()); }
     this.meshes = [body, outline];
-    // 칼은 원소 빛을 띠어야 해서 따로 (오른손에 붙임)
-    for (const { bone, g } of bladeParts) { const m = new THREE.Mesh(g.build(), this.mats.blade); bone.add(m); this.meshes.push(m); }
+    // 칼은 원소 빛을 띠어야 하고, 모션마다 쥐는 방향이 달라서 따로 (오른손 → 칼 피벗)
+    this.bladePivot = new THREE.Group(); this.bladePivot.position.copy(GRIP);
+    this.bone('RightHand').add(this.bladePivot);
+    const hiltMat = toonMat(C.tsuka, this.rim), guardMat = toonMat(C.tsuba, this.rim);
+    this.mats.hilt = hiltMat; this.mats.guard = guardMat;
+    for (const { color, g } of bladeParts) {
+      const m = new THREE.Mesh(g.build(), color === 'blade' ? this.mats.blade : color === 'blade_tsuka' ? hiltMat : guardMat);
+      this.bladePivot.add(m); this.meshes.push(m);
+    }
+    this.bladeAdj = {};
+    for (const [n, d] of Object.entries(BLADE_DIR_BY_CLIP)) this.bladeAdj[n] = new THREE.Quaternion().setFromUnitVectors(BLADE_DIR, new THREE.Vector3(...d).normalize());
   }
   // ---------- 애니메이터 ----------
   reset() {
     this.cur = null; this.prev = null; this.alpha = 1; this.key = '';
     this.locoT = 0; this.walkF = 0; this.walkS = 0; this.loopT = 0; this.lastState = ''; this.lastF = 0;
-    this.downT0 = 0; this.bodyPitch = 0; this.bodyRoll = 0; this.rootH = 0.95;
+    this.downT0 = 0; this.rootH = 0.95; this.visYaw = undefined;
   }
   dur(n) { return this.clips[n] ? this.clips[n].duration : 1; }
   // 이번 프레임 목표 자세 [ [클립, 시간, 가중치], ... ] 와 전환 키
@@ -226,8 +241,8 @@ export class SwordsmanRig {
         return { key: 'death', L: [['death', Math.min(this.dur('death') - 0.01, this.downT0 + (f / 60) * 1.4), 1]] };
       }
       case 'getup': return { key: 'death', L: [['death', (this.dur('death') - 0.01) * (1 - Math.min(1, f / 20)), 1]] };
-      case 'roll': return { key: 'roll', L: [['crouch', 0.4, 1]], fade: 2 };
-      case 'win': return { key: 'win', L: [['power_up', Math.min(this.dur('power_up') - 0.01, f / 60), 1]], fade: 6 };
+      case 'roll': return { key: 'roll', L: [['roll', 0.55 + Math.min(1, f / 26) * 0.95, 1]], fade: 2 };
+      case 'win': return { key: 'win', L: [['withdraw', Math.min(this.dur('withdraw') - 0.01, f / 60), 1]], fade: 6 };
     }
     return { key: 'idle', L: [['idle', 0, 1]] };
   }
@@ -246,12 +261,10 @@ export class SwordsmanRig {
     this.cur = T;
     if (this.alpha < 1) this.alpha = Math.min(1, this.alpha + 1 / this.fadeN);
     this.lastState = F.state; this.lastF = F.f;
-    // 구르기·쓰러짐 루트 회전 (프로시저럴과 같은 식)
-    const s = F.state;
-    if (s === 'roll') {
-      const p = clamp(F.f / 20, 0, 1), e = p < 1 ? p * p * (3 - 2 * p) : 0, ang = F.rollSign * Math.PI * 2 * e;
-      if (F.rollAxis === 'x') { this.bodyPitch = ang; this.bodyRoll = 0; } else { this.bodyRoll = -ang; this.bodyPitch = 0; }
-    } else { this.bodyPitch = lerp(this.bodyPitch, 0, 0.4); this.bodyRoll = lerp(this.bodyRoll, 0, 0.4); }
+    // 보이는 방향: 구르는 동안은 구르는 방향, 그 외에는 상대 쪽 (빠르게 돌아옴)
+    const want = F.state === 'roll' && F.f < 22 ? Math.atan2(F.rollDir[0], F.rollDir[1]) : F.yaw;
+    if (this.visYaw === undefined) this.visYaw = want;
+    this.visYaw = turnTo(this.visYaw, want, F.state === 'roll' ? 0.6 : 0.35);
     this.fk(F);
   }
   apply() {
@@ -265,15 +278,20 @@ export class SwordsmanRig {
     if (!this.cur) this.cur = this.target(F);
     this.apply();
     this.group.position.set(F.x, F.state === 'launched' ? F.y : 0, F.z);
-    this.group.rotation.set(0, F.yaw, 0);
-    this.pivot.rotation.set(this.bodyPitch, 0, this.bodyRoll);
+    this.group.rotation.set(0, this.visYaw === undefined ? F.yaw : this.visYaw, 0);
+    // 모션별 칼 쥐는 방향 (블렌드 가중치만큼 회전) + 납도 후 칼 숨김
+    let adj = null, w = 0;
+    const scan = (L, k) => { for (const [n, t, wt] of L) { if (this.bladeAdj[n]) { adj = this.bladeAdj[n]; w += wt * k; } } };
+    if (this.cur) scan(this.cur.L, this.prev && this.alpha < 1 ? this.alpha : 1);
+    if (this.prev && this.alpha < 1) scan(this.prev.L, 1 - this.alpha);
+    if (adj) this.bladePivot.quaternion.identity().slerp(adj, Math.min(1, w)); else this.bladePivot.quaternion.identity();
+    this.bladePivot.visible = !(F.state === 'win' && F.f > 62);
     this.group.updateMatrixWorld(true);
     const hp = this.bone('Hips').getWorldPosition(TMP);
     this.rootH = hp.y; this.root[12] = hp.x; this.root[13] = hp.y; this.root[14] = hp.z;
   }
   bladePoint(t) {
-    const h = this.bone('RightHand');
-    return h.localToWorld(GRIP.clone().addScaledVector(BLADE_DIR, BLADE.base + (BLADE.tip - BLADE.base) * t)).toArray();
+    return this.bladePivot.localToWorld(BLADE_DIR.clone().multiplyScalar(BLADE.base + (BLADE.tip - BLADE.base) * t)).toArray();
   }
   limbPos(limb) { return limb === 'blade' ? this.bladePoint(0.7) : this.center(); }
   center() { return this.bone('Spine1').getWorldPosition(new THREE.Vector3()).toArray(); }

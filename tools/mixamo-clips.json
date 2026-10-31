@@ -1,5 +1,5 @@
 {
-  "_설명": "Mixamo FBX → 게임 클립 이름. 파일 이름은 Great Sword Pack 그대로. stripXZ: 엉덩이의 앞뒤·좌우 이동(루트 모션) 제거",
+  "_설명": "Mixamo FBX → 게임 클립 이름. 파일은 assets-src/mixamo(Great Sword Pack 압축 해제) → assets-src/extra 순서로 찾음",
   "idle": "great sword idle",
   "walk_f": "great sword walk",
   "walk_b": "great sword walk (2)",
@@ -24,5 +24,8 @@
   "kick2": "great sword kick (2)",
   "spin": "great sword high spin attack",
   "jump_attack": "great sword jump attack",
-  "slide": "great sword slide attack"
+  "slide": "great sword slide attack",
+  "stab": "Stabbing 2",
+  "roll": "Stand To Roll",
+  "withdraw": "Withdrawing Sword"
 }

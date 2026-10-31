@@ -53,8 +53,8 @@ npm run e2e      # 빌드본을 실제 브라우저(Playwright)로 띄워 CPU끼
 
 ## 캐릭터 모션 (Mixamo)
 
-- 원본: `assets-src/Great Sword Pack.zip` (Mixamo Great Sword Pack, X Bot 기준, 60fps)
-- 변환: zip을 풀고 `node tools/convert-mixamo.mjs <FBX 폴더>` → `public/models/swordsman.glb` (뼈대 + 클립, 약 1.3MB)
+- 원본: `assets-src/Great Sword Pack.zip` (Mixamo Great Sword Pack, X Bot 기준, 60fps) + `assets-src/extra/` (찌르기·구르기·칼 넣기 등 단품)
+- 변환: zip을 `assets-src/mixamo/`에 풀고 `node tools/convert-mixamo.mjs assets-src/mixamo assets-src/extra` → `public/models/swordsman.glb` (뼈대 + 클립, 약 1.3MB)
   - 어떤 FBX를 어떤 클립으로 쓸지: `tools/mixamo-clips.json`
   - 손가락 고정, 루트 이동 제거(이동은 게임 로직이 담당), 키프레임 줄이기
 - 기술 ↔ 클립 타이밍(시작/칼이 닿는 순간/끝): `src/anim/clipMap.js`

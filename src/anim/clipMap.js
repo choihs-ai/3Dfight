@@ -2,7 +2,7 @@
 // 기술 클립: t0(시작) → hit(칼이 가장 빠른 순간 = 판정 발생) → t1(끝)
 // 발생(startup)·지속(active)·후딜(recovery) 프레임에 맞춰 클립 시간을 늘이고 줄임
 export const MOVE_CLIPS = {
-  stab: { clip: 'kick', t0: 0.95, hit: 1.23, t1: 1.5 },
+  stab: { clip: 'stab', t0: 0.12, hit: 0.38, t1: 0.85 },
   combo2: { clip: 'slash4', t0: 0.4, hit: 0.72, t1: 1.2 },
   combo3: { clip: 'spin', t0: 0.6, hit: 1.08, t1: 1.6 },
   slash_h: { clip: 'slash3', t0: 0.35, hit: 0.86, t1: 1.45 },
@@ -23,3 +23,6 @@ export function moveClipTime(m, f) {
   if (f <= S + A) return c.hit + (h2 - c.hit) * ((f - S) / A);
   return h2 + (c.t1 - h2) * Math.min(1, (f - S - A) / Math.max(1, R));
 }
+
+// 한손으로 쥐는 모션은 칼 방향이 다름 → 오른손 뼈 기준 칼날 방향 덮어쓰기
+export const BLADE_DIR_BY_CLIP = { stab: [0.05, 0.97, 0.22] };
