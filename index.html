@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="락온파이터">
+<meta name="theme-color" content="#0b0a10">
+<title>락온 파이터</title>
+<link rel="stylesheet" href="/src/ui/style.css">
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="flash"></div>
+
+<div id="hud" class="hide">
+  <div class="side p1">
+    <div class="name"><span style="color:var(--p1)" id="p1Name">나</span><span class="pips" id="pip0"></span></div>
+    <div class="hpbar" id="hpb0"><div class="lag" id="lag0"></div><div class="fill" id="hp0"></div></div>
+    <div class="stbar" id="stb0"><div id="st0"></div></div>
+  </div>
+  <div id="timer">60</div>
+  <div class="side p2">
+    <div class="name"><span style="color:var(--p2)" id="cpuName">CPU</span><span class="pips" id="pip1"></span></div>
+    <div class="hpbar" id="hpb1"><div class="lag" id="lag1"></div><div class="fill" id="hp1"></div></div>
+    <div class="stbar" id="stb1"><div id="st1"></div></div>
+  </div>
+</div>
+<button id="pauseBtn" class="hide">Ⅱ</button>
+<div id="calls"><div class="ccol" id="cL"></div><div class="ccol" id="cR"></div></div>
+<div id="banner"></div>
+
+<div id="controls" class="hide">
+  <div id="joyZone"><div id="joyBase"><div id="joyHint">↑ 상대 쪽 · ↔ 옆걸음</div><div id="joyKnob"></div></div></div>
+  <div id="pad">
+    <div class="btn r" data-k="roll">회피<small>구르기</small></div>
+    <div class="btn" data-k="1">1<small>왼손</small></div>
+    <div class="btn" data-k="2">2<small>오른손</small></div>
+    <div class="btn g" data-k="guard">가드<small>톡=패링</small></div>
+    <div class="btn" data-k="3">3<small>왼발</small></div>
+    <div class="btn" data-k="4">4<small>오른발</small></div>
+  </div>
+</div>
+
+<div id="title" class="screen">
+  <div class="panel">
+    <div class="logo">LOCK-ON<br>FIGHTER</div>
+    <div class="sub">락온 파이터</div>
+    <div class="tag">3인칭 락온 시점 · 1:1 대전격투</div>
+    <div class="row" id="diffRow">
+      <button class="ui" data-d="practice">연습</button>
+      <button class="ui" data-d="easy">쉬움</button>
+      <button class="ui sel" data-d="normal">보통</button>
+      <button class="ui" data-d="hard">어려움</button>
+    </div>
+    <div class="row">
+      <button class="ui big" id="startBtn">시작</button>
+    </div>
+    <div class="row">
+      <button class="ui" id="movesBtn">기술표 · 조작법</button>
+    </div>
+    <div class="note" id="orientNote">📱 가로로 돌리면 더 넓게 볼 수 있어요</div>
+    <div class="note">PC: WASD 이동 · U I J K = 1 2 3 4 · L 가드 · Space 회피</div>
+    <div class="note ver" id="ver"></div>
+  </div>
+</div>
+
+<div id="moves" class="screen hide">
+  <div class="panel">
+    <div class="logo" style="font-size:26px">기술표</div>
+    <div class="mv">
+      <h3>기본 조작</h3>
+      <div class="it"><span class="k">왼쪽 스틱</span><span class="d">위 = 상대에게 다가가기 · 아래 = 물러나기 · 좌우 = 상대 주위를 돌기(옆걸음)</span></div>
+      <div class="it"><span class="k">가드 꾹</span><span class="d">서서 막기 — <b>상단·중단</b>을 막음</span></div>
+      <div class="it"><span class="k">가드 + 아래</span><span class="d">앉아 막기 — <b>하단</b>을 막고 <b>상단은 피함</b>. 중단에는 맞음</span></div>
+      <div class="it"><span class="k">가드 톡</span><span class="d">맞기 직전에 누르면 <b>패링</b> — 상대가 크게 휘청임</span></div>
+      <div class="it"><span class="k">회피</span><span class="d">무적 구르기(스틱 방향). 스태미나 소모</span></div>
+      <h3>기술 (앞 = 스틱 위)</h3>
+      <div class="it"><span class="k">1</span><span class="d"><span class="lv h">상단</span>잽 — 가장 빠름</span></div>
+      <div class="it"><span class="k">1 → 2 → 4</span><span class="d"><span class="lv h">상단</span>원투 → 마무리 하이킥(다운)</span></div>
+      <div class="it"><span class="k">2</span><span class="d"><span class="lv h">상단</span>스트레이트</span></div>
+      <div class="it"><span class="k">3</span><span class="d"><span class="lv l">하단</span>로킥 — 서서 막는 상대에게</span></div>
+      <div class="it"><span class="k">4</span><span class="d"><span class="lv h">상단</span>하이킥 — 강하지만 느림</span></div>
+      <div class="it"><span class="k">앞 + 2</span><span class="d"><span class="lv m">중단</span>어퍼컷 — <b>띄우기</b>. 이후 1→2→4 공중 콤보. 막히면 크게 반격당함</span></div>
+      <div class="it"><span class="k">앞 + 4</span><span class="d"><span class="lv m">중단</span>앞차기 — 멀리 밀어냄</span></div>
+      <div class="it"><span class="k">뒤 + 3</span><span class="d"><span class="lv l">하단</span>다리 쓸기 — 넘어뜨림</span></div>
+      <div class="it"><span class="k">옆 + 4</span><span class="d"><span class="lv m">중단</span>돌려차기 — <b>옆걸음을 잡는</b> 추적기</span></div>
+      <div class="it"><span class="k">뒤 + 2</span><span class="d"><span class="lv m">중단</span>망치 내려치기 — <b>슈퍼아머</b>(맞아도 안 끊김), 가드 스태미나를 크게 깎음</span></div>
+      <h3>요령</h3>
+      <div class="it"><span class="d">직선 기술(1·2·4)은 옆걸음으로 피할 수 있고, 옆+4가 그 옆걸음을 잡습니다. 상대가 기술을 쓰는 도중에 때리면 <b>카운터</b>(피해 증가).</span></div>
+    </div>
+    <div class="row"><button class="ui big" id="movesClose">닫기</button></div>
+  </div>
+</div>
+
+<div id="pause" class="screen hide">
+  <div class="panel">
+    <div class="logo" style="font-size:34px">일시정지</div>
+    <div class="row"><button class="ui big" id="resumeBtn">계속하기</button></div>
+    <div class="row"><button class="ui" id="pMoves">기술표</button><button class="ui" id="pQuit">처음으로</button></div>
+  </div>
+</div>
+
+<div id="result" class="screen hide">
+  <div class="panel">
+    <div class="res" id="resText">승리</div>
+    <div class="sub" id="resSub"></div>
+    <div class="row"><button class="ui big" id="againBtn">다시 하기</button></div>
+    <div class="row"><button class="ui" id="rQuit">처음으로</button></div>
+  </div>
+</div>
+
+<div id="fatal" class="screen hide"><div class="panel"><p id="fatalMsg" style="font-size:16px;line-height:1.5"></p></div></div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

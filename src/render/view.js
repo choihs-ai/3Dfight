@@ -1,0 +1,82 @@
+// 화면 담당: three 씬 + 캐릭터 + 파티클 + 카메라. sim 상태를 읽어서 그리기만 함.
+import * as THREE from 'three';
+import { MAXHP } from '../core/util.js';
+import { buildArena } from './arena.js';
+import { BoxCharacter } from './boxCharacter.js';
+import { Particles } from './particles.js';
+import { LockOnCamera } from './camera.js';
+import { addLights, FOGC, FOG } from './lighting.js';
+import { ProcAnimator } from '../anim/procedural.js';
+
+THREE.ColorManagement.enabled = false;
+
+export class View {
+  constructor(canvas) {
+    const r = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', alpha: false });
+    r.outputColorSpace = THREE.LinearSRGBColorSpace;
+    r.setClearColor(new THREE.Color(...FOGC), 1);
+    this.renderer = r;
+    this.scene = new THREE.Scene();
+    this.scene.fog = new THREE.Fog(new THREE.Color(...FOGC), FOG[0], FOG[1]);
+    addLights(this.scene);
+    this.arena = buildArena(this.scene);
+    this.particles = new Particles(this.scene);
+    this.camera = new LockOnCamera();
+    this.fx = [0, 1].map((i) => ({
+      anim: new ProcAnimator(i), char: new BoxCharacter(this.scene, i),
+      flash: 0, flashCol: [1, 1, 1], hpLag: MAXHP, lagDelay: 0,
+    }));
+    this.emit = [0, 0, 0];
+    this.shadows = [[0, 0, 0.62], [0, 0, 0.62]];
+    this.resize();
+  }
+  resize() {
+    const W = Math.max(1, innerWidth), H = Math.max(1, innerHeight);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.setSize(W, H, false);
+    this.portrait = H > W;
+    this.camera.cam.aspect = W / H;
+  }
+  resetRound(sim) {
+    this.fx.forEach((f, i) => { f.anim.reset(); f.anim.fk(sim.f[i]); f.flash = 0; f.hpLag = MAXHP; f.lagDelay = 0; });
+    this.camera.snap = true;
+  }
+  hitFlash(i, frames, col) { const f = this.fx[i]; f.flash = frames; f.flashCol = col; }
+  // 파티클 위치용
+  limbPos(i, limb) { return this.fx[i].anim.limbPos(limb); }
+  center(i) { return this.fx[i].anim.center(); }
+
+  // sim.step() 직후 매번 호출 (advanced=false면 히트스톱으로 멈춘 프레임)
+  onStep(sim, advanced, t) {
+    this.particles.flames(this.arena.braziers);
+    this.particles.update(1 / 60);
+    if (this.camera.shake > 0) this.camera.shake *= 0.86;
+    if (!advanced) return;
+    for (let i = 0; i < 2; i++) {
+      const F = sim.f[i], fx = this.fx[i];
+      if (fx.flash > 0) fx.flash--;
+      if (fx.hpLag > F.hp) { if (fx.lagDelay > 0) fx.lagDelay--; else fx.hpLag = Math.max(F.hp, fx.hpLag - 0.7); } else fx.hpLag = F.hp;
+      fx.anim.step(F, t);
+    }
+  }
+  render(dt, t, sim, orbit) {
+    const [P, E] = sim.f;
+    this.camera.update(dt, t, P, E, this.fx[0].anim.rootH, this.portrait, orbit);
+    for (let i = 0; i < 2; i++) {
+      const F = sim.f[i], fx = this.fx[i];
+      const fl = fx.flash > 0 ? fx.flash / 5 : 0, fc = fx.flashCol, e = this.emit;
+      if (fl) { e[0] = fc[0] * fl * 0.7; e[1] = fc[1] * fl * 0.7; e[2] = fc[2] * fl * 0.7; }
+      else if (F.armorOn) { const p = 0.25 + 0.15 * Math.sin(t * 30); e[0] = p; e[1] = p * 0.5; e[2] = p * 0.1; }
+      else if (F.state === 'parried') { e[0] = 0.15; e[1] = 0.12; e[2] = 0.02; }
+      else { e[0] = e[1] = e[2] = 0; }
+      fx.char.sync(fx.anim, e);
+      const root = fx.anim.root;
+      this.shadows[i][0] = root[12]; this.shadows[i][1] = root[14]; this.shadows[i][2] = 0.62 - Math.min(0.25, F.y * 0.1);
+    }
+    const cam = this.camera.cam;
+    this.arena.update(t, cam, this.camera.eye, this.shadows);
+    const tanY = Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2);
+    this.particles.upload(this.renderer.domElement.height / (2 * tanY));
+    this.renderer.render(this.scene, cam);
+  }
+}

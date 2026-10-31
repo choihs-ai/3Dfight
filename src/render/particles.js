@@ -1,0 +1,93 @@
+// 파티클 (타격 스파크, 먼지, 화로 불꽃) — 가산 혼합 포인트 스프라이트
+import * as THREE from 'three';
+import { lerp } from '../core/util.js';
+
+const PMAX = 900;
+const FIELDS = ['x', 'y', 'z', 'vx', 'vy', 'vz', 'life', 'max', 's0', 's1', 'r', 'g', 'b', 'a', 'gr', 'dr'];
+const rnd = (a, b) => a + Math.random() * (b - a);
+function rdir() { const u = Math.random() * 2 - 1, t = Math.random() * Math.PI * 2, s = Math.sqrt(1 - u * u); return [s * Math.cos(t), u, s * Math.sin(t)]; }
+
+const VS = `attribute vec4 aCol;attribute float aSize;uniform float uScale;varying vec4 vC;
+void main(){gl_Position=projectionMatrix*viewMatrix*vec4(position,1.);gl_PointSize=min(aSize*uScale/max(gl_Position.w,.1),256.);vC=aCol;}`;
+const FS = `varying vec4 vC;void main(){float d=length(gl_PointCoord-.5);float a=smoothstep(.5,0.,d);a*=a;gl_FragColor=vec4(vC.rgb*a*vC.a,1.);}`;
+
+export class Particles {
+  constructor(scene) {
+    this.n = 0;
+    for (const k of FIELDS) this[k] = new Float32Array(PMAX);
+    this.pos = new Float32Array(PMAX * 3); this.col = new Float32Array(PMAX * 4); this.size = new Float32Array(PMAX);
+    const g = new THREE.BufferGeometry();
+    this.aPos = new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage);
+    this.aCol = new THREE.BufferAttribute(this.col, 4).setUsage(THREE.DynamicDrawUsage);
+    this.aSize = new THREE.BufferAttribute(this.size, 1).setUsage(THREE.DynamicDrawUsage);
+    g.setAttribute('position', this.aPos); g.setAttribute('aCol', this.aCol); g.setAttribute('aSize', this.aSize);
+    this.uScale = { value: 1 };
+    this.points = new THREE.Points(g, new THREE.ShaderMaterial({
+      vertexShader: VS, fragmentShader: FS, uniforms: { uScale: this.uScale },
+      transparent: true, depthWrite: false, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
+    }));
+    this.points.frustumCulled = false; this.points.renderOrder = 10;
+    this.geo = g;
+    scene.add(this.points);
+  }
+  emit(x, y, z, vx, vy, vz, life, s0, s1, r, g, b, a, gr = 0, dr = 1) {
+    if (this.n >= PMAX) return;
+    const i = this.n++;
+    this.x[i] = x; this.y[i] = y; this.z[i] = z; this.vx[i] = vx; this.vy[i] = vy; this.vz[i] = vz;
+    this.life[i] = this.max[i] = life; this.s0[i] = s0; this.s1[i] = s1; this.r[i] = r; this.g[i] = g; this.b[i] = b; this.a[i] = a; this.gr[i] = gr; this.dr[i] = dr;
+  }
+  update(dt) {
+    let j = 0;
+    for (let i = 0; i < this.n; i++) {
+      const l = this.life[i] - dt;
+      if (l <= 0) continue;
+      if (j !== i) for (const k of FIELDS) this[k][j] = this[k][i];
+      this.life[j] = l; this.vy[j] += this.gr[j] * dt;
+      const d = Math.pow(this.dr[j], dt * 60);
+      this.vx[j] *= d; this.vy[j] *= d; this.vz[j] *= d;
+      this.x[j] += this.vx[j] * dt; this.y[j] += this.vy[j] * dt; this.z[j] += this.vz[j] * dt;
+      if (this.y[j] < 0.02) { this.y[j] = 0.02; this.vy[j] *= -0.3; }
+      j++;
+    }
+    this.n = j;
+  }
+  // 렌더 직전 GPU 버퍼 갱신
+  upload(scale) {
+    this.uScale.value = scale;
+    for (let i = 0; i < this.n; i++) {
+      const t = this.life[i] / this.max[i];
+      this.pos[i * 3] = this.x[i]; this.pos[i * 3 + 1] = this.y[i]; this.pos[i * 3 + 2] = this.z[i];
+      this.col[i * 4] = this.r[i]; this.col[i * 4 + 1] = this.g[i]; this.col[i * 4 + 2] = this.b[i]; this.col[i * 4 + 3] = this.a[i] * Math.min(1, t * 1.6);
+      this.size[i] = lerp(this.s1[i], this.s0[i], t);
+    }
+    this.geo.setDrawRange(0, this.n);
+    for (const a of [this.aPos, this.aCol, this.aSize]) { a.clearUpdateRanges(); a.addUpdateRange(0, this.n * a.itemSize); a.needsUpdate = true; }
+    this.points.visible = this.n > 0;
+  }
+  sparks(p, kind, power = 8) {
+    const [x, y, z] = p, E = this.emit.bind(this);
+    if (kind === 'hit' || kind === 'counter') {
+      const big = power >= 12, c = kind === 'counter' ? [1, 0.4, 0.2] : [1, 0.85, 0.45];
+      E(x, y, z, 0, 0, 0, 0.1, big ? 1.6 : 1.1, big ? 2.2 : 1.5, 1, 0.92, 0.7, 1);
+      for (let i = 0; i < (big ? 26 : 16); i++) { const d = rdir(), s = rnd(3, big ? 9 : 6.5); E(x, y, z, d[0] * s, d[1] * s + 1, d[2] * s, rnd(0.15, 0.35), rnd(0.07, 0.13), 0.02, c[0], c[1], c[2], 1, -9, 0.9); }
+    } else if (kind === 'block') {
+      E(x, y, z, 0, 0, 0, 0.08, 0.8, 1.1, 0.5, 0.8, 1, 1);
+      for (let i = 0; i < 10; i++) { const d = rdir(), s = rnd(2, 5); E(x, y, z, d[0] * s, d[1] * s, d[2] * s, rnd(0.1, 0.22), 0.07, 0.02, 0.45, 0.8, 1, 1, -6, 0.88); }
+    } else if (kind === 'parry') {
+      E(x, y, z, 0, 0, 0, 0.18, 2.6, 3.6, 1, 1, 0.9, 1);
+      for (let i = 0; i < 24; i++) { const a = (i / 24) * Math.PI * 2; E(x, y, z, Math.cos(a) * 7, rnd(-0.5, 0.5), Math.sin(a) * 7, 0.28, 0.12, 0.03, 1, 0.85, 0.45, 1, 0, 0.86); }
+      for (let i = 0; i < 18; i++) { const d = rdir(), s = rnd(3, 8); E(x, y, z, d[0] * s, d[1] * s + 1, d[2] * s, rnd(0.2, 0.45), 0.1, 0.02, 1, 1, 0.8, 1, -8, 0.9); }
+    } else if (kind === 'armor') {
+      E(x, y, z, 0, 0, 0, 0.1, 1.2, 1.4, 1, 0.55, 0.15, 1);
+      for (let i = 0; i < 12; i++) { const d = rdir(), s = rnd(2, 5); E(x, y, z, d[0] * s, d[1] * s, d[2] * s, 0.25, 0.1, 0.02, 1, 0.55, 0.2, 1, -6, 0.9); }
+    } else if (kind === 'dust') {
+      for (let i = 0; i < 16; i++) { const a = Math.random() * Math.PI * 2, s = rnd(0.8, 2.2); E(x + Math.cos(a) * 0.3, 0.1, z + Math.sin(a) * 0.3, Math.cos(a) * s, rnd(0.2, 0.8), Math.sin(a) * s, rnd(0.4, 0.8), 0.35, 0.9, 0.35, 0.3, 0.26, 0.35, 0, 0.92); }
+    }
+  }
+  flames(braziers) {
+    for (const b of braziers) {
+      this.emit(b[0] + rnd(-0.14, 0.14), b[1], b[2] + rnd(-0.14, 0.14), rnd(-0.15, 0.15), rnd(1.1, 1.9), rnd(-0.15, 0.15), rnd(0.35, 0.6), rnd(0.4, 0.6), 0.08, 1, rnd(0.42, 0.6), 0.15, 0.85, 0.6, 0.97);
+      if (Math.random() < 0.12) this.emit(b[0], b[1] + 0.2, b[2], rnd(-0.5, 0.5), rnd(1.5, 2.5), rnd(-0.5, 0.5), rnd(0.8, 1.4), 0.06, 0.02, 1, 0.7, 0.3, 1, -0.3, 0.99);
+    }
+  }
+}
