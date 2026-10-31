@@ -2,6 +2,11 @@
 import { DT, MAXHP, clamp, turnTo } from './util.js';
 import { MV, resolveMove } from './moves.js';
 
+// 흐름 연계: 어떤 베기든 지속 끝 +FLOW_WINDOW 프레임 안에 다음 입력이 들어오면 후딜 없이 이어짐
+export const FLOW_WINDOW = 10;
+export const MAX_CHAIN = 5;          // 한 번에 이어지는 최대 기술 수
+export const FLOW_SKIP = 0.35;       // 이어지는 기술은 준비 동작(발생)의 앞 35%를 건너뜀
+
 export class Fighter {
   constructor(idx, sim) {
     this.idx = idx;
@@ -14,7 +19,7 @@ export class Fighter {
       state: 'idle', f: 0, stun: 0, move: null, hitDone: false, pendingChain: null,
       guard: false, crouch: false, lastGuardPress: -99, juggle: 0, combo: 0,
       rollDir: [0, 0], rollAxis: 'x', rollSign: 1, armorOn: false, hitLevel: 'high',
-      moveUid: 0, launchUid: 0, idleF: 0, moveStart: 0, chainStart: 0, gesture: 'h', swipeAng: 0,
+      moveUid: 0, launchUid: 0, idleF: 0, moveStart: 0, chainStart: 0, chainN: 0, pendingNamed: false, gesture: 'h', swipeAng: 0,
       // 걷기 애니메이션용 정보 (wk: 0 변화없음 / 1 멈춤 / 2 앉음 / 3 걷기)
       wk: 0, wmx: 0, wmy: 0, wph: 0,
     });
@@ -35,14 +40,17 @@ export class Fighter {
     if (this.st <= 0) { this.st = 0; this.exhaust = true; }
     this.stDelay = Math.max(this.stDelay, delay);
   }
-  startMove(id, chained = false) {
+  startMove(id, chained = false, named = false) {
     const m = MV[id];
     // 연속기 중이면 첫 기술 시작 시점부터 들어온 입력을 다음 연결로 인정 (빠른 연타 허용)
     this.chainStart = chained ? this.chainStart : this.sim.frame;
+    this.chainN = chained ? this.chainN + 1 : 0;
     this.state = 'attack'; this.move = m; this.f = 0; this.hitDone = false; this.pendingChain = null;
     this.useSt(m.stam, 30);
     this.moveUid = ++this.sim.uid; this.moveStart = this.sim.frame;
     this.guard = false; this.crouch = false; this.armorOn = false;
+    // 흐름 연계로 이어진 기술은 준비 동작 앞부분을 건너뜀 (전용 연속기는 원래 프레임 그대로)
+    if (chained && !named) this.f = Math.floor(m.startup * FLOW_SKIP);
   }
   startRoll(inp, dx, dz) {
     let mx = inp.mx, my = inp.my;
@@ -94,13 +102,18 @@ export class Fighter {
         }
         if (f === m.startup - 2) sim.emit({ t: 'whoosh', i: this.idx, move: m.id });
         this.armorOn = !!(m.armor && f >= m.armor[0] && f <= m.armor[1]);
-        if (m.chain && !this.pendingChain && f >= 2) {
+        // 다음 입력 받기: 전용 연속기(chain) 우선, 아니면 아무 베기나 흐름 연계 (연계 구간 안에서만)
+        if (!this.pendingChain && f >= 2 && f <= m.startup + m.active + FLOW_WINDOW && this.chainN < MAX_CHAIN - 1) {
           const bb = inp.buf;
           for (let i = 0; i < bb.length; i++) {
-            if (m.chain[bb[i].b] && bb[i].t >= this.chainStart + 2) { this.pendingChain = m.chain[bb[i].b]; this.pendingAng = bb[i].a || 0; bb.splice(i, 1); break; }
+            const e = bb[i];
+            if (e.t < this.chainStart + 2) continue;
+            const named = m.chain && m.chain[e.b];
+            this.pendingChain = named || resolveMove(e.b, e.dir); this.pendingNamed = !!named;
+            this.pendingAng = e.a || 0; bb.splice(i, 1); break;
           }
         }
-        if (this.pendingChain && f >= m.startup + m.active + 1) { this.startMove(this.pendingChain, true); this.swipeAng = this.pendingAng; break; }
+        if (this.pendingChain && f >= m.startup + m.active + 1) { this.startMove(this.pendingChain, true, this.pendingNamed); this.swipeAng = this.pendingAng; break; }
         if (f >= m.total) { this.state = 'idle'; this.f = 0; this.move = null; this.idleF = 0; }
         break;
       }
@@ -150,6 +163,7 @@ export class Fighter {
     const d = Math.hypot(nx, nz) || 1; nx /= d; nz /= d;
     const air = this.state === 'launched';
     let dmg = m.dmg * (counter ? 1.25 : 1);
+    if (A.chainN >= 2) dmg *= Math.max(0.5, 1 - 0.15 * (A.chainN - 1)); // 흐름 연계 3타째부터 보정
     if (air) { this.juggle++; dmg *= Math.max(0.3, 1 - 0.15 * this.juggle); } // 공중 콤보 보정
     this.hp = Math.max(0, this.hp - dmg);
     this.guard = false; this.crouch = false; this.move = null;

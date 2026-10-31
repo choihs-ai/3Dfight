@@ -240,7 +240,7 @@ export class SwordsmanRig {
         }
         return { key: 'loco', L, fade: 6 };
       }
-      case 'attack': { const c = moveCut(this.ch.id, F.move.id, F.moveUid); return { key: 'atk' + F.moveUid, L: [[c.clip, moveClipTime(c, F.move, f), 1]], fade: 3 }; }
+      case 'attack': { const c = moveCut(this.ch.id, F.move.id, F.moveUid); return { key: 'atk' + F.moveUid, L: [[c.clip, moveClipTime(c, F.move, f), 1]], fade: F.chainN > 0 ? 6 : 3 }; }
       case 'hitstun': {
         const n = F.hitLevel === 'high' ? 'hit_head' : F.hitLevel === 'low' ? 'hit_low' : 'hit_body';
         return { key: 'hit', L: [[n, Math.min(1, f / Math.max(1, F.stun)) * this.dur(n) * 0.7, 1]], fade: 2 };

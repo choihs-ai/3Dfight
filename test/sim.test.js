@@ -1,7 +1,7 @@
 // 전투 로직 자동 테스트 — 브라우저 없이 Node에서 실행: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Sim, AI, MV, MAXHP } from '../src/core/index.js';
+import { Sim, AI, MV, MAXHP, FLOW_WINDOW, MAX_CHAIN } from '../src/core/index.js';
 
 const inp = (o = {}) => ({ mx: 0, my: 0, guard: false, gp: false, roll: false, btns: [], ...o });
 const press = (b, dir = 'n', o = {}) => inp({ btns: [{ b, dir }], ...o });
@@ -197,4 +197,33 @@ test('연습 모드: 타이머 없음 + 체력 회복', () => {
   run(s, 90);
   assert.equal(s.f[1].hp, MAXHP);
   assert.equal(s.timer, 60);
+});
+
+test('흐름 연계: 아무 베기나 이어짐 (내려베기 → 하단베기 → 찌르기), 이어진 기술은 준비 동작을 건너뜀', () => {
+  const s = setup();
+  const ev = run(s, 120, (i) => (i === 0 ? press('d') : i === 10 ? press('l') : i === 20 ? press('t') : inp()));
+  const moves = ev.filter((e) => e.t === 'hit').map((e) => e.move);
+  assert.deepEqual(moves, ['slash_down', 'slash_low', 'stab']);
+  // 연계된 하단베기는 원래 발생(12)보다 빨리 나감: 내려베기 지속 끝 직후 시작 + 12*(1-0.35)
+  const h1 = ev.filter((e) => e.t === 'hit');
+  assert.ok(h1[1].i - h1[0].i < MV.slash_down.active + MV.slash_low.startup + MV.slash_down.hitstop, '빠르게 이어짐');
+});
+
+test('흐름 연계: 연계 구간을 놓치면 후딜을 다 겪음', () => {
+  const s = setup();
+  const m = MV.slash_down, late = m.startup + m.active + FLOW_WINDOW + m.hitstop + 3;
+  let chained = null;
+  run(s, 140, (i) => (i === 0 ? press('d') : i === late ? press('l') : inp()), () => inp(), );
+  for (let i = 0; i < 80 && chained === null; i++) { s.step(); if (s.f[0].move && s.f[0].move.id === 'slash_low') chained = s.f[0].chainN; }
+  // 버퍼에 남아 있다가 후딜이 끝난 뒤 '새 기술'로 나감 (연계 아님)
+  assert.equal(s.f[0].chainN, 0, '연계되지 않음');
+});
+
+test('흐름 연계: 최대 ' + MAX_CHAIN + '연속까지', () => {
+  const s = setup(1.6);
+  s.f[0].st = 100;
+  const ev = run(s, 400, (i) => (i % 9 === 0 && i < 300 ? press('h') : inp()), () => inp({ guard: true }));
+  const starts = ev.filter((e) => e.t === 'whoosh' && e.i < 200).length;
+  assert.ok(s.f[0].chainN < MAX_CHAIN, 'chainN 상한');
+  assert.ok(starts >= 3, '여러 번 이어짐');
 });
