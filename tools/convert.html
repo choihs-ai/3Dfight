@@ -1,4 +1,4 @@
-<!doctype html><html><body>
+<!doctype html><html><head><meta charset="utf-8"></head><body>
 <script type="importmap">{"imports":{"three":"/three/build/three.module.js","three/addons/":"/three/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -10,8 +10,11 @@ const S = 0.01; // cm → m
 window.convert = async (spec) => {
   let skeleton = null;
   const clips = [], report = [];
-  for (const [name, file] of Object.entries(spec)) {
+  const leftArmJobs = [];
+  for (const [name, entry] of Object.entries(spec)) {
     if (name.startsWith('_')) continue;
+    const file = typeof entry === 'string' ? entry : entry.file;
+    if (entry.leftArm) leftArmJobs.push([name, entry.leftArm]);
     const o = await load(file);
     if (!skeleton) skeleton = o;
     const a = o.animations[0];
@@ -56,6 +59,19 @@ window.convert = async (spec) => {
     }
     clips.push(a);
     report.push(`${name}: ${a.duration.toFixed(2)}s`);
+  }
+  // 왼팔 자세 교체: 다른 클립의 특정 순간 자세로 고정 (방패 든 팔 → 칼집 쥔 팔)
+  const LEFT_ARM = /^mixamorigLeft(Shoulder|Arm|ForeArm|Hand)/;
+  for (const [name, [src, t]] of leftArmJobs) {
+    const dst = clips.find((c) => c.name === name), from = clips.find((c) => c.name === src);
+    for (const tr of dst.tracks) {
+      if (!LEFT_ARM.test(tr.name)) continue;
+      const st = from.tracks.find((x) => x.name === tr.name);
+      if (!st) continue;
+      const v = st.createInterpolant().evaluate(Math.min(t, from.duration));
+      tr.times = new Float32Array([0]); tr.values = new Float32Array(v);
+    }
+    report.push(`  ↳ ${name}: 왼팔 ← ${src} ${t}s`);
   }
   // 뼈대만 담은 장면 (단위 m)
   const root = new THREE.Group(); root.name = 'swordsman';

@@ -1,5 +1,5 @@
 {
-  "_설명": "Mixamo FBX → 게임 클립 이름. 파일은 assets-src/mixamo(Great Sword Pack 압축 해제) → assets-src/extra 순서로 찾음",
+  "_설명": "Mixamo FBX → 게임 클립 이름. 폴더 순서대로 찾음: assets-src/mixamo(Great Sword Pack) → assets-src/extra(단품) → assets-src/shield(Pro Sword and Shield Pack). {file, leftArm:[클립, 초]} = 왼팔 자세를 다른 클립의 그 순간 자세로 고정(방패 든 팔 → 칼집 쥔 팔)",
   "idle": "great sword idle",
   "walk_f": "great sword walk",
   "walk_b": "great sword walk (2)",
@@ -34,5 +34,68 @@
   "hit_body": "great sword impact (2)",
   "hit_low": "great sword impact (5)",
   "death2": "two handed sword death (2)",
-  "inward": "Stable Sword Inward Slash"
+  "inward": "Stable Sword Inward Slash",
+  "ss_idle": {
+    "file": "sword and shield idle",
+    "leftArm": [
+      "withdraw",
+      1.4
+    ]
+  },
+  "ss_slash": {
+    "file": "sword and shield slash",
+    "leftArm": [
+      "withdraw",
+      1.4
+    ]
+  },
+  "ss_slash2": {
+    "file": "sword and shield slash (2)",
+    "leftArm": [
+      "withdraw",
+      1.4
+    ]
+  },
+  "ss_slash3": {
+    "file": "sword and shield slash (3)",
+    "leftArm": [
+      "withdraw",
+      1.4
+    ]
+  },
+  "ss_slash5": {
+    "file": "sword and shield slash (5)",
+    "leftArm": [
+      "withdraw",
+      1.4
+    ]
+  },
+  "ss_attack2": {
+    "file": "sword and shield attack (2)",
+    "leftArm": [
+      "withdraw",
+      1.4
+    ]
+  },
+  "ss_attack3": {
+    "file": "sword and shield attack (3)",
+    "leftArm": [
+      "withdraw",
+      1.4
+    ]
+  },
+  "ss_attack4": {
+    "file": "sword and shield attack (4)",
+    "leftArm": [
+      "withdraw",
+      1.4
+    ]
+  },
+  "ss_kick": {
+    "file": "sword and shield kick",
+    "leftArm": [
+      "withdraw",
+      1.4
+    ]
+  }
 }
