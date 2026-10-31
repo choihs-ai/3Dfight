@@ -25,20 +25,32 @@ const PARTS = [];
     add(kn, 'wrap', (g) => g.cyl(0, -0.33, 0, 0.053, 0.05, -0.41, 7));
     add(kn, 'skin', (g) => g.box(0, -0.45, 0.05, 0.09, 0.07, 0.22));
   }
+  // 하오리 자락 (가슴·골반에 붙은 넓은 천)
+  add(2, 'gi', (g) => { g.box(0, -0.02, -0.02, 0.44, 0.1, 0.26); });
+  add(0, 'gi', (g) => { g.box(0.13, -0.2, -0.02, 0.16, 0.36, 0.24); g.box(-0.13, -0.2, -0.02, 0.16, 0.36, 0.24); });
+  // 카타나 (오른손목 12번 관절, 로컬 +z 방향)
+  add(12, 'tsuka', (g) => g.box(0, 0, -0.06, 0.035, 0.04, 0.3));
+  add(12, 'tsuba', (g) => g.box(0, 0, 0.1, 0.1, 0.09, 0.018));
+  add(12, 'blade', (g) => {
+    // 얇고 살짝 휘어진 칼날 (세그먼트 4개), 끝은 뾰족
+    const seg = 4, L0 = 0.12, L1 = 1.0;
+    for (let i = 0; i < seg; i++) {
+      const z0 = L0 + ((L1 - L0) * i) / seg, z1 = L0 + ((L1 - L0) * (i + 1)) / seg, zc = (z0 + z1) / 2;
+      const curve = 0.035 * Math.pow(zc, 2), w = i === seg - 1 ? 0.02 : 0.032;
+      g.box(0, curve, zc, 0.008, w, z1 - z0 + 0.004);
+    }
+  });
 })();
 
 const hx = (c) => [parseInt(c.slice(1, 3), 16) / 255, parseInt(c.slice(3, 5), 16) / 255, parseInt(c.slice(5, 7), 16) / 255];
-export const PALETTES = [
-  { gi: '#2f5590', pants: '#1f2a40', belt: '#e9e4d4', skin: '#dca77c', hair: '#1a1a1f', accent: '#62b8ff', glove: '#3f92e8', wrap: '#d9d4c6', dark: '#0a0a10' },
-  { gi: '#8a2f2c', pants: '#2b1a1a', belt: '#141414', skin: '#c88f66', hair: '#e8e2d6', accent: '#ff6a54', glove: '#d8463a', wrap: '#3a3030', dark: '#0a0a10' },
-];
-const RIM = [[0.18, 0.34, 0.6], [0.6, 0.22, 0.16]];
 
 export class BoxCharacter {
-  constructor(scene, idx) {
-    this.rim = { value: new THREE.Vector3(...RIM[idx]) };
+  constructor(scene, ch) {
+    this.rim = { value: new THREE.Vector3(...ch.rim) };
+    this.glow = ch.glow;
     this.mats = {};
-    for (const k in PALETTES[idx]) this.mats[k] = rimLambert(hx(PALETTES[idx][k]), this.rim);
+    for (const k in ch.colors) this.mats[k] = rimLambert(hx(ch.colors[k]), this.rim);
+    this.scene = scene;
     this.meshes = PARTS.map((p) => {
       const m = new THREE.Mesh(p.geo, this.mats[p.col]);
       m.matrixAutoUpdate = false;
@@ -51,5 +63,13 @@ export class BoxCharacter {
   sync(anim, emit) {
     for (const m of this.meshes) { m.matrix.fromArray(anim.jw[m.userData.j]); m.matrixWorldNeedsUpdate = true; }
     for (const k in this.mats) this.mats[k].emissive.setRGB(emit[0], emit[1], emit[2]);
+    const g = this.glow; // 칼날은 원소 빛을 항상 띰
+    this.mats.blade.emissive.setRGB(emit[0] + g[0] * 1.6, emit[1] + g[1] * 1.6, emit[2] + g[2] * 1.6);
   }
 }
+
+// 캐릭터 교체 시 메시 제거
+BoxCharacter.prototype.dispose = function () {
+  for (const m of this.meshes) this.scene.remove(m);
+  for (const k in this.mats) this.mats[k].dispose();
+};

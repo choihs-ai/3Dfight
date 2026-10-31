@@ -6,6 +6,7 @@ import { Game } from './game.js';
 import { Sound } from './audio/sound.js';
 import { AIL } from './core/ai.js';
 import { MV } from './core/moves.js';
+import { CHARACTERS } from './data/characters.js';
 
 const $ = (s) => document.querySelector(s);
 function fatal(msg) { show('#title', false); $('#fatalMsg').textContent = msg; show('#fatal', true); }
@@ -21,7 +22,7 @@ try {
 const hud = new Hud();
 let game;
 const input = new PlayerInput({
-  joyZone: $('#joyZone'), joyBase: $('#joyBase'), joyKnob: $('#joyKnob'), pad: $('#pad'),
+  joyZone: $('#joyZone'), joyBase: $('#joyBase'), joyKnob: $('#joyKnob'), pad: $('#pad'), slashPad: $('#slashPad'),
   canPress: () => game.canPress(), onAnyTouch: () => Sound.init(),
 });
 game = new Game({ view, hud, input });
@@ -34,7 +35,25 @@ document.querySelectorAll('#diffRow .ui').forEach((b) => b.addEventListener('cli
   b.classList.add('sel'); game.diff = b.dataset.d; Sound.init(); Sound.muted = false; Sound.play('ui'); Sound.muted = game.mode === 'demo';
 }));
 let movesFrom = '#title';
-$('#startBtn').addEventListener('click', () => { Sound.init(); game.startMatch(); });
+// 캐릭터 선택
+let pick = 0;
+function renderCards() {
+  $('#cards').innerHTML = CHARACTERS.map((c, i) => {
+    const hex = (v) => '#' + v.map((x) => Math.round(Math.min(1, x) * 255).toString(16).padStart(2, '0')).join('');
+    return `<div class="card${i === pick ? ' sel' : ''}" data-i="${i}" style="--c1:${c.colors.gi};--c2:${hex(c.trail[1])}">
+      ${i === pick ? '<span class="tag2">나</span>' : ''}<div class="ic">${c.icon}</div><div class="el">${c.element} 원소</div>
+      <div class="nm">${c.name}</div><div class="st">${c.style}</div><div class="ds">${c.desc}</div></div>`;
+  }).join('');
+  document.querySelectorAll('#cards .card').forEach((el) => el.addEventListener('click', () => { pick = +el.dataset.i; Sound.muted = false; Sound.play('ui'); Sound.muted = game.mode === 'demo'; renderCards(); }));
+}
+$('#startBtn').addEventListener('click', () => { Sound.init(); renderCards(); show('#title', false); show('#charSel', true); });
+$('#charBack').addEventListener('click', () => { show('#charSel', false); show('#title', true); });
+$('#fightBtn').addEventListener('click', () => {
+  Sound.init();
+  const others = CHARACTERS.filter((_, i) => i !== pick);
+  game.chars = [CHARACTERS[pick], others[(Math.random() * others.length) | 0]];
+  show('#charSel', false); game.startMatch();
+});
 $('#movesBtn').addEventListener('click', () => { movesFrom = '#title'; show('#title', false); show('#moves', true); });
 $('#movesClose').addEventListener('click', () => { show('#moves', false); show(movesFrom, true); });
 $('#pauseBtn').addEventListener('click', () => game.togglePause());
@@ -58,7 +77,7 @@ resize();
 // 테스트/디버그 훅 (프로토타입과 같은 이름)
 const G = {};
 for (const k of ['frame', 'phase', 'phaseT', 'round', 'wins', 'timer', 'hitstop', 'winner']) Object.defineProperty(G, k, { get: () => game.sim[k] });
-for (const k of ['mode', 'diff', 'paused', 'auto', 'stats', 't', 'slow']) Object.defineProperty(G, k, { get: () => game[k], set: (v) => { game[k] = v; } });
+for (const k of ['mode', 'diff', 'paused', 'freeze', 'auto', 'stats', 't', 'slow']) Object.defineProperty(G, k, { get: () => game[k], set: (v) => { game[k] = v; } });
 Object.defineProperty(G, 'f', { get: () => game.sim.f });
 Object.defineProperty(G, 'sim', { get: () => game.sim });
 Object.defineProperty(G, 'ctrl', { get: () => game.ctrl });

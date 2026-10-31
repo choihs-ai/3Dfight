@@ -4,6 +4,7 @@ import { Sim } from './core/sim.js';
 import { AI } from './core/ai.js';
 import { Sound } from './audio/sound.js';
 import { show } from './ui/hud.js';
+import { CHARACTERS } from './data/characters.js';
 
 export const DIFFNAME = { practice: '연습 인형', easy: 'CPU · 쉬움', normal: 'CPU · 보통', hard: 'CPU · 어려움' };
 
@@ -14,6 +15,13 @@ export class Game {
     this.slow = 0; this.t = 0; this.acc = 0;
     this.stats = { hits: 0, maxCombo: 0, parries: 0 };
     this.sim = null; this.ctrl = [null, null];
+    this.chars = [CHARACTERS[0], CHARACTERS[1]];
+  }
+  applyChars() {
+    this.view.setCharacters(this.chars);
+    const hex = (v) => '#' + v.map((x) => Math.round(Math.min(1, x) * 255).toString(16).padStart(2, '0')).join('');
+    document.documentElement.style.setProperty('--el', hex(this.chars[0].trail[1]));
+    document.querySelector('#p1Name').textContent = this.chars[0].name;
   }
   newSim(mode) {
     const seed = (Math.random() * 2 ** 31) | 0;
@@ -22,6 +30,8 @@ export class Game {
   }
   startDemo() {
     this.mode = 'demo'; Sound.muted = true;
+    const a = (Math.random() * CHARACTERS.length) | 0, b = (a + 1 + ((Math.random() * (CHARACTERS.length - 1)) | 0)) % CHARACTERS.length;
+    this.chars = [CHARACTERS[a], CHARACTERS[b]]; this.applyChars();
     this.newSim('demo');
     this.ctrl = [new AI(this.sim, 0, 'normal'), new AI(this.sim, 1, 'normal')];
     show('#hud', false); show('#controls', false); show('#pauseBtn', false); show('#title', true);
@@ -31,10 +41,11 @@ export class Game {
     this.mode = this.diff === 'practice' ? 'practice' : 'match'; Sound.muted = false;
     this.paused = false; this.slow = 0; this.stats = { hits: 0, maxCombo: 0, parries: 0 };
     this.input.clear();
+    this.applyChars();
     this.newSim(this.mode);
     this.ctrl = [this.auto ? new AI(this.sim, 0, 'normal') : null, new AI(this.sim, 1, this.diff)];
     show('#title', false); show('#result', false); show('#hud', true); show('#controls', true); show('#pauseBtn', true);
-    document.querySelector('#cpuName').textContent = DIFFNAME[this.diff];
+    document.querySelector('#cpuName').textContent = `${this.chars[1].name} · ${DIFFNAME[this.diff]}`;
     this.input.joyHome();
   }
   showResult() {
@@ -42,7 +53,7 @@ export class Game {
     show('#controls', false); show('#pauseBtn', false);
     const rt = document.querySelector('#resText');
     rt.textContent = win ? '승리!' : '패배'; rt.className = 'res ' + (win ? 'win' : 'lose');
-    document.querySelector('#resSub').textContent = `${DIFFNAME[this.diff]} · 최대 콤보 ${this.stats.maxCombo} · 패링 ${this.stats.parries}회`;
+    document.querySelector('#resSub').textContent = `${this.chars[0].name} vs ${this.chars[1].name} · ${DIFFNAME[this.diff]} · 최대 콤보 ${this.stats.maxCombo} · 패링 ${this.stats.parries}회`;
     this.mode = 'result';
     show('#result', true);
   }
@@ -77,6 +88,7 @@ export class Game {
           const hp = this.sparkPos(e.a, e.d, e.limb);
           v.hitFlash(e.d, 5, e.counter ? [1, 0.35, 0.2] : [1, 1, 1]); v.fx[e.d].lagDelay = 40;
           P.sparks(hp, e.counter ? 'counter' : 'hit', e.dmg);
+          P.elementBurst(hp, v.fx[e.a].ch.id, e.dmg + (e.counter ? 4 : 0));
           shake(e.dmg >= 12 ? 0.16 : 0.07);
           Sound.play(e.dmg >= 12 ? 'heavy' : 'hit');
           if (pl) {
@@ -131,7 +143,7 @@ export class Game {
   }
   // requestAnimationFrame 마다
   frame(dt) {
-    if (!this.paused) {
+    if (!this.paused && !this.freeze) { // freeze: 테스트용 (입력은 받고 시간만 멈춤)
       const ts = this.slow > 0 ? 0.3 : 1;
       if (this.slow > 0) this.slow -= dt;
       this.t += dt * ts; this.acc += dt * ts;

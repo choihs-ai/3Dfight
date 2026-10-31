@@ -14,7 +14,7 @@ export class Fighter {
       state: 'idle', f: 0, stun: 0, move: null, hitDone: false, pendingChain: null,
       guard: false, crouch: false, lastGuardPress: -99, juggle: 0, combo: 0,
       rollDir: [0, 0], rollAxis: 'x', rollSign: 1, armorOn: false, hitLevel: 'high',
-      moveUid: 0, launchUid: 0, idleF: 0, moveStart: 0,
+      moveUid: 0, launchUid: 0, idleF: 0, moveStart: 0, chainStart: 0, gesture: 'h', swipeAng: 0,
       // 걷기 애니메이션용 정보 (wk: 0 변화없음 / 1 멈춤 / 2 앉음 / 3 걷기)
       wk: 0, wmx: 0, wmy: 0, wph: 0,
     });
@@ -35,8 +35,10 @@ export class Fighter {
     if (this.st <= 0) { this.st = 0; this.exhaust = true; }
     this.stDelay = Math.max(this.stDelay, delay);
   }
-  startMove(id) {
+  startMove(id, chained = false) {
     const m = MV[id];
+    // 연속기 중이면 첫 기술 시작 시점부터 들어온 입력을 다음 연결로 인정 (빠른 연타 허용)
+    this.chainStart = chained ? this.chainStart : this.sim.frame;
     this.state = 'attack'; this.move = m; this.f = 0; this.hitDone = false; this.pendingChain = null;
     this.useSt(m.stam, 30);
     this.moveUid = ++this.sim.uid; this.moveStart = this.sim.frame;
@@ -78,7 +80,7 @@ export class Fighter {
         const fresh = sim.frame - inp.rollPressed <= 6;
         if (fresh && !this.exhaust && this.st >= 10) { inp.rollPressed = -99; this.startRoll(inp, dx, dz); break; }
         const b = this.takeBuf(inp, 8);
-        if (b) { this.startMove(resolveMove(b.b, b.dir)); break; }
+        if (b) { this.startMove(resolveMove(b.b, b.dir)); this.swipeAng = b.a || 0; break; }
         if (!this.crouch) this.walk(inp, op, dist, dx, dz);
         else this.wk = 2;
         break;
@@ -95,10 +97,10 @@ export class Fighter {
         if (m.chain && !this.pendingChain && f >= 2) {
           const bb = inp.buf;
           for (let i = 0; i < bb.length; i++) {
-            if (m.chain[bb[i].b] && bb[i].t >= this.moveStart + 2) { this.pendingChain = m.chain[bb[i].b]; bb.splice(i, 1); break; }
+            if (m.chain[bb[i].b] && bb[i].t >= this.chainStart + 2) { this.pendingChain = m.chain[bb[i].b]; this.pendingAng = bb[i].a || 0; bb.splice(i, 1); break; }
           }
         }
-        if (this.pendingChain && f >= m.startup + m.active + 1) { this.startMove(this.pendingChain); break; }
+        if (this.pendingChain && f >= m.startup + m.active + 1) { this.startMove(this.pendingChain, true); this.swipeAng = this.pendingAng; break; }
         if (f >= m.total) { this.state = 'idle'; this.f = 0; this.move = null; this.idleF = 0; }
         break;
       }

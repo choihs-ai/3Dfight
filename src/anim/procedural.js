@@ -9,7 +9,9 @@ export const JOINTS = [
   { n: 'hips', p: -1, o: [0, 0, 0] }, { n: 'spine', p: 0, o: [0, 0.07, 0] }, { n: 'chest', p: 1, o: [0, 0.25, 0] }, { n: 'head', p: 2, o: [0, 0.27, 0] },
   { n: 'shL', p: 2, o: [0.2, 0.2, 0] }, { n: 'elL', p: 4, o: [0, -0.28, 0] }, { n: 'shR', p: 2, o: [-0.2, 0.2, 0] }, { n: 'elR', p: 6, o: [0, -0.28, 0] },
   { n: 'hipL', p: 0, o: [0.1, -0.05, 0] }, { n: 'knL', p: 8, o: [0, -0.43, 0] }, { n: 'hipR', p: 0, o: [-0.1, -0.05, 0] }, { n: 'knR', p: 10, o: [0, -0.43, 0] },
+  { n: 'wrR', p: 7, o: [0, -0.29, 0] }, // 12: 오른손목 = 칼 손잡이
 ];
+export const BLADE = { base: 0.12, tip: 1.0 }; // 손목 기준 칼날 시작/끝 (로컬 +z)
 
 // 기술 키프레임 테이블 (프레임 수는 core MV에서)
 const KF = {};
@@ -106,7 +108,10 @@ export class ProcAnimator {
     sh += P.lift || 0;
     if (sh) { for (const m of this.jw) m[13] += sh; this.root[13] += sh; }
   }
+  // 칼날 위 한 점 (t: 0 = 날 시작, 1 = 칼끝)
+  bladePoint(t) { return m4.pt(this.jw[12], 0, 0, BLADE.base + (BLADE.tip - BLADE.base) * t); }
   limbPos(limb) {
+    if (limb === 'blade') return this.bladePoint(0.7);
     if (limb === 'both') { const a = m4.pt(this.jw[5], 0, -0.29, 0), b = m4.pt(this.jw[7], 0, -0.29, 0); return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]; }
     if (limb === 'fistL') return m4.pt(this.jw[5], 0, -0.29, 0);
     if (limb === 'fistR') return m4.pt(this.jw[7], 0, -0.29, 0);

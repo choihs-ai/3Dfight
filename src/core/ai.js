@@ -2,6 +2,8 @@
 // 매 프레임 FrameInput을 만들어 돌려줌 (히트스톱 중/라운드 밖에서는 null).
 import { MV, resolveMove } from './moves.js';
 
+const RANGE_BONUS = 0.45; // 칼 사거리만큼 판단 거리도 늘림
+
 export const AIL = {
   practice: { idle: true },
   easy: { react: 22, block: 0.25, dodge: 0.05, lowRead: 0.2, duck: 0, parry: 0, punish: 0.15, juggle: 0.25, aggro: 0.35, tempo: 1.5 },
@@ -57,15 +59,15 @@ export class AI {
       wantC = this.plan.crouch && wantG;
     }
     if (me.state === 'idle' && !wantG) {
-      if (op.state === 'attack' && op.move && op.f >= op.move.startup + op.move.active && op.move.total - op.f > 9 && dist < 1.9 && this.punished !== op.moveUid) {
+      if (op.state === 'attack' && op.move && op.f >= op.move.startup + op.move.active && op.move.total - op.f > 9 && dist < 1.9 + RANGE_BONUS && this.punished !== op.moveUid) {
         this.punished = op.moveUid;
-        if (R() < L.punish) { if (op.move.total - op.f > 17 && dist < 1.5) press('2', 'f'); else press('1', 'n'); }
-      } else if (op.state === 'parried' && dist < 2 && this.punished !== -op.f - 1000) {
+        if (R() < L.punish) { if (op.move.total - op.f > 17 && dist < 1.5 + RANGE_BONUS) press('u', 'f'); else press('t', 'n'); }
+      } else if (op.state === 'parried' && dist < 2 + RANGE_BONUS && this.punished !== -op.f - 1000) {
         this.punished = -op.f - 1000;
-        if (op.f < 6) press('2', 'f');
-      } else if (op.state === 'launched' && dist < 2.4 && op.y < 1.4 && this.juggled !== op.launchUid && op.vy < 1) {
+        if (op.f < 6) press('u', 'f');
+      } else if (op.state === 'launched' && dist < 2.4 + RANGE_BONUS && op.y < 1.4 && this.juggled !== op.launchUid && op.vy < 1) {
         this.juggled = op.launchUid;
-        if (R() < L.juggle) { press('1', 'n'); this.queue.push({ t: now + 9, b: '2', d: 'n' }, { t: now + 21, b: '4', d: 'n' }); }
+        if (R() < L.juggle) { press('t', 'n'); this.queue.push({ t: now + 9, b: 'h', d: 'n' }, { t: now + 21, b: 'h', d: 'n' }); }
       } else {
         if (--this.iT <= 0) this.pick(dist);
         switch (this.intent) {
@@ -91,19 +93,19 @@ export class AI {
     this.sd = R() < 0.5 ? 1 : -1;
     let T = 30;
     if (me.st < 20) { this.intent = 'back'; T = 30; }
-    else if (dist > 2.8) { this.intent = r < 0.8 ? 'approach' : 'circle'; T = 20 + R() * 30; }
-    else if (dist > 0.95) {
+    else if (dist > 2.8 + RANGE_BONUS) { this.intent = r < 0.8 ? 'approach' : 'circle'; T = 20 + R() * 30; }
+    else if (dist > 0.95 + RANGE_BONUS * 0.4) {
       if (r < L.aggro) {
-        const near = [['1', 'n'], ['2', 'n'], ['3', 'n'], ['2', 'f'], ['1', 'n'], ['4', 's']];
-        const far = [['4', 'n'], ['4', 'f'], ['3', 'b'], ['4', 's'], ['2', 'b'], ['3', 'n']];
-        const pool = dist < 1.55 ? near : far;
+        const near = [['t', 'n'], ['h', 'n'], ['l', 'n'], ['u', 'f'], ['t', 'n'], ['h', 's']];
+        const far = [['d', 'n'], ['t', 'f'], ['l', 'b'], ['h', 's'], ['d', 'b'], ['l', 'n']];
+        const pool = dist < 1.55 + RANGE_BONUS ? near : far;
         const c = pool[(R() * pool.length) | 0];
         const id = resolveMove(c[0], c[1]);
         this.atk = { b: c[0], d: c[1], r: MV[id].range + 0.2 }; this.intent = 'attack'; T = 40;
       } else if (r < L.aggro + 0.2) { this.intent = 'circle'; T = 18 + R() * 25; }
       else if (r < L.aggro + 0.3) { this.intent = 'back'; T = 10 + R() * 15; }
       else { this.intent = 'wait'; this.waitG = R() < 0.5; T = 14 + R() * 24; }
-    } else { if (r < 0.6) { this.atk = { b: '1', d: 'n', r: 9 }; this.intent = 'attack'; } else this.intent = 'back'; T = 14; }
+    } else { if (r < 0.6) { this.atk = { b: 't', d: 'n', r: 9 }; this.intent = 'attack'; } else this.intent = 'back'; T = 14; }
     this.iT = T * (L.tempo || 1);
   }
 }

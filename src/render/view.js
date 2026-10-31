@@ -7,6 +7,8 @@ import { Particles } from './particles.js';
 import { LockOnCamera } from './camera.js';
 import { addLights, FOGC, FOG } from './lighting.js';
 import { ProcAnimator } from '../anim/procedural.js';
+import { SwordTrail } from './trails.js';
+import { CHARACTERS } from '../data/characters.js';
 
 THREE.ColorManagement.enabled = false;
 
@@ -22,13 +24,21 @@ export class View {
     this.arena = buildArena(this.scene);
     this.particles = new Particles(this.scene);
     this.camera = new LockOnCamera();
-    this.fx = [0, 1].map((i) => ({
-      anim: new ProcAnimator(i), char: new BoxCharacter(this.scene, i),
-      flash: 0, flashCol: [1, 1, 1], hpLag: MAXHP, lagDelay: 0,
-    }));
+    this.fx = [0, 1].map((i) => ({ anim: new ProcAnimator(i), flash: 0, flashCol: [1, 1, 1], hpLag: MAXHP, lagDelay: 0 }));
+    this.setCharacters([CHARACTERS[1], CHARACTERS[0]]);
     this.emit = [0, 0, 0];
     this.shadows = [[0, 0, 0.62], [0, 0, 0.62]];
     this.resize();
+  }
+  // 원소 캐릭터 지정 (외형 + 칼 궤적 색)
+  setCharacters(chars) {
+    chars.forEach((ch, i) => {
+      const f = this.fx[i];
+      if (f.ch === ch) return;
+      if (f.char) f.char.dispose();
+      if (f.trail) f.trail.dispose();
+      f.ch = ch; f.char = new BoxCharacter(this.scene, ch); f.trail = new SwordTrail(this.scene, ch);
+    });
   }
   resize() {
     const W = Math.max(1, innerWidth), H = Math.max(1, innerHeight);
@@ -38,7 +48,7 @@ export class View {
     this.camera.cam.aspect = W / H;
   }
   resetRound(sim) {
-    this.fx.forEach((f, i) => { f.anim.reset(); f.anim.fk(sim.f[i]); f.flash = 0; f.hpLag = MAXHP; f.lagDelay = 0; });
+    this.fx.forEach((f, i) => { f.anim.reset(); f.anim.fk(sim.f[i]); f.trail.clear(); f.flash = 0; f.hpLag = MAXHP; f.lagDelay = 0; });
     this.camera.snap = true;
   }
   hitFlash(i, frames, col) { const f = this.fx[i]; f.flash = frames; f.flashCol = col; }
@@ -49,6 +59,7 @@ export class View {
   // sim.step() 직후 매번 호출 (advanced=false면 히트스톱으로 멈춘 프레임)
   onStep(sim, advanced, t) {
     this.particles.flames(this.arena.braziers);
+    this.particles.embers();
     this.particles.update(1 / 60);
     if (this.camera.shake > 0) this.camera.shake *= 0.86;
     if (!advanced) return;
@@ -57,6 +68,11 @@ export class View {
       if (fx.flash > 0) fx.flash--;
       if (fx.hpLag > F.hp) { if (fx.lagDelay > 0) fx.lagDelay--; else fx.hpLag = Math.max(F.hp, fx.hpLag - 0.7); } else fx.hpLag = F.hp;
       fx.anim.step(F, t);
+      // 휘두르는 구간: 발생 3프레임 전 ~ 지속 끝 +2
+      const m = F.state === 'attack' && F.move;
+      const swing = !!m && F.f >= m.startup - 3 && F.f <= m.startup + m.active + 2;
+      fx.trail.push(swing, fx.anim);
+      if (swing) this.particles.elementSwing(fx.anim.bladePoint(1), fx.ch.id);
     }
   }
   render(dt, t, sim, orbit) {
@@ -73,6 +89,7 @@ export class View {
       const root = fx.anim.root;
       this.shadows[i][0] = root[12]; this.shadows[i][1] = root[14]; this.shadows[i][2] = 0.62 - Math.min(0.25, F.y * 0.1);
     }
+    for (const f of this.fx) f.trail.update();
     const cam = this.camera.cam;
     this.arena.update(t, cam, this.camera.eye, this.shadows);
     const tanY = Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2);

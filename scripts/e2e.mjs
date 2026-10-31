@@ -33,8 +33,23 @@ async function open(q, vp) {
 for (const [name, vp] of [['landscape', { width: 844, height: 390 }], ['portrait', { width: 390, height: 844 }]]) {
   const { page, errors } = await open('', vp);
   await page.screenshot({ path: join(outDir, `title-${name}.png`) });
+  await page.click('[data-d="practice"]'); // 연습 인형(가만히 있음)으로 조작 확인
   await page.click('#startBtn');
-  await page.evaluate(() => window.__step(200));
+  await page.screenshot({ path: join(outDir, `charsel-${name}.png`) });
+  await page.click('#cards .card:nth-child(3)');
+  await page.click('#fightBtn');
+  await page.evaluate(() => { window.__G.freeze = true; window.__step(90); });
+  // 베기 패드 조작: 탭 = 찌르기, 아래로 긋기 = 내려베기
+  const pad = await page.locator('#slashPad').boundingBox();
+  const cx = pad.x + pad.width / 2, cy = pad.y + pad.height / 2;
+  const moveAfter = async (fn) => { await fn(); await page.evaluate(() => window.__step(2)); const m = await page.evaluate(() => window.__F[0].move?.id); await page.evaluate(() => window.__step(60)); return m; };
+  const tapMv = await moveAfter(async () => { await page.mouse.move(cx, cy); await page.mouse.down(); await page.mouse.up(); });
+  check(tapMv === 'stab', `${name}: 패드 탭 → 찌르기 (${tapMv})`);
+  const downMv = await moveAfter(async () => { await page.mouse.move(cx, cy - 30); await page.mouse.down(); await page.mouse.move(cx, cy + 30, { steps: 4 }); await page.mouse.up(); });
+  check(downMv === 'slash_down', `${name}: 아래로 긋기 → 내려베기 (${downMv})`);
+  const hMv = await moveAfter(async () => { await page.mouse.move(cx + 35, cy); await page.mouse.down(); await page.mouse.move(cx - 35, cy, { steps: 4 }); await page.mouse.up(); });
+  check(hMv === 'slash_h', `${name}: 가로 긋기 → 가로베기 (${hMv})`);
+  await page.evaluate(() => { window.__G.freeze = false; window.__step(120); });
   await page.waitForTimeout(400);
   await page.screenshot({ path: join(outDir, `fight-${name}.png`) });
   check(errors.length === 0, `${name}: 콘솔 에러 없음 ${errors.join(' | ')}`);

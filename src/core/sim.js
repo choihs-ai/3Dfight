@@ -1,6 +1,6 @@
 // 대전 시뮬레이션 — 60fps 고정 프레임. 브라우저 없이(Node) 돌아감.
 // step(inputs) 한 번 = 1프레임. inputs[i] = FrameInput | null
-//   FrameInput = { mx, my, guard, gp(가드 누른 순간), roll(회피 누른 순간), btns:[{b:'1'..'4', dir:'n'|'f'|'b'|'s'}] }
+//   FrameInput = { mx, my, guard, gp(가드 누른 순간), roll(회피 누른 순간), btns:[{b:'t'|'h'|'u'|'d'|'l'(긋기), dir:'n'|'f'|'b'|'s', a:긋기 각도}] }
 import { DT, MAXHP, ARENA_R, seeded } from './util.js';
 import { Fighter } from './fighter.js';
 import { tryHit, applyHit } from './combat.js';
@@ -46,7 +46,7 @@ export class Sim {
     if (fi.gp) st.guardPressed = true;
     if (fi.roll) st.rollPressed = this.frame;
     st.mx = fi.mx || 0; st.my = fi.my || 0; st.guard = !!fi.guard;
-    if (live && fi.btns) for (const p of fi.btns) { st.buf.push({ b: p.b, dir: p.dir, t: this.frame }); if (st.buf.length > 4) st.buf.shift(); }
+    if (live && fi.btns) for (const p of fi.btns) { st.buf.push({ b: p.b, dir: p.dir, a: p.a || 0, t: this.frame }); if (st.buf.length > 4) st.buf.shift(); }
   }
 
   // 반환값: 실제로 진행됐으면 true (히트스톱 중이면 false)

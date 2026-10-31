@@ -23,27 +23,27 @@ function run(s, n, a = () => inp(), b = () => inp()) {
 }
 const first = (ev, t) => ev.find((e) => e.t === t);
 
-test('잽: 발생 7프레임째에 맞음, 히트스턴 17', () => {
+test('찌르기(탭): 발생 7프레임째에 맞음', () => {
   const s = setup();
-  const ev = run(s, 20, (i) => (i === 0 ? press('1') : inp()));
+  const ev = run(s, 20, (i) => (i === 0 ? press('t') : inp()));
   const h = first(ev, 'hit');
   assert.ok(h, '맞아야 함');
-  assert.equal(h.move, 'jab');
-  assert.equal(h.i, MV.jab.startup); // 입력 프레임(0) + 7
-  assert.equal(s.f[1].hp, MAXHP - MV.jab.dmg);
+  assert.equal(h.move, 'stab');
+  assert.equal(h.i, MV.stab.startup); // 입력 프레임(0) + 7
+  assert.equal(s.f[1].hp, MAXHP - MV.stab.dmg);
 });
 
 test('히트스톱 동안 시간이 멈춤', () => {
   const s = setup();
-  run(s, 8, (i) => (i === 0 ? press('1') : inp()));
-  assert.equal(s.hitstop, MV.jab.hitstop);
+  run(s, 8, (i) => (i === 0 ? press('t') : inp()));
+  assert.equal(s.hitstop, MV.stab.hitstop);
   const f = s.f[1].f;
-  run(s, MV.jab.hitstop);
+  run(s, MV.stab.hitstop);
   assert.equal(s.f[1].f, f, '히트스톱 중에는 상태 프레임이 안 흐름');
 });
 
 test('서서 가드: 상단·중단 방어, 하단은 맞음', () => {
-  for (const [b, dir, lvl, blocked] of [['1', 'n', 'high', true], ['2', 'f', 'mid', true], ['3', 'n', 'low', false]]) {
+  for (const [b, dir, lvl, blocked] of [['t', 'n', 'high', true], ['u', 'f', 'mid', true], ['l', 'n', 'low', false]]) {
     const s = setup();
     const ev = run(s, 30, (i) => (i === 5 ? press(b, dir) : inp()), () => inp({ guard: true }));
     const r = ev.find((e) => e.t === 'hit' || e.t === 'block');
@@ -53,7 +53,7 @@ test('서서 가드: 상단·중단 방어, 하단은 맞음', () => {
 });
 
 test('앉아 가드: 하단 방어, 상단은 피함(헛침), 중단은 맞음', () => {
-  for (const [b, dir, expect] of [['3', 'n', 'block'], ['1', 'n', 'none'], ['4', 'f', 'hit']]) {
+  for (const [b, dir, expect] of [['l', 'n', 'block'], ['t', 'n', 'none'], ['t', 'f', 'hit']]) {
     const s = setup();
     const ev = run(s, 30, (i) => (i === 5 ? press(b, dir) : inp()), () => inp({ guard: true, my: -1 }));
     const r = ev.find((e) => e.t === 'hit' || e.t === 'block');
@@ -63,86 +63,87 @@ test('앉아 가드: 하단 방어, 상단은 피함(헛침), 중단은 맞음',
 
 test('패링: 맞기 직전(8프레임 이내) 가드 톡', () => {
   const s = setup();
-  // 잽은 입력 후 7프레임째 판정 → 4프레임째에 가드 누름
-  const ev = run(s, 20, (i) => (i === 0 ? press('1') : inp()), (i) => (i >= 4 ? inp({ guard: true, gp: i === 4 }) : inp()));
+  // 찌르기는 입력 후 7프레임째 판정 → 4프레임째에 가드 누름
+  const ev = run(s, 20, (i) => (i === 0 ? press('t') : inp()), (i) => (i >= 4 ? inp({ guard: true, gp: i === 4 }) : inp()));
   assert.ok(first(ev, 'parry'), '패링 발생');
   assert.equal(s.f[0].state, 'parried');
 });
 
 test('일찍 누른 가드는 패링이 아니라 일반 가드', () => {
   const s = setup();
-  const ev = run(s, 30, (i) => (i === 10 ? press('1') : inp()), (i) => inp({ guard: true, gp: i === 0 }));
+  const ev = run(s, 30, (i) => (i === 10 ? press('t') : inp()), (i) => inp({ guard: true, gp: i === 0 }));
   assert.ok(first(ev, 'block'));
   assert.ok(!first(ev, 'parry'));
 });
 
 test('카운터: 상대 기술 발생 중에 맞히면 카운터(피해 1.25배)', () => {
   const s = setup();
-  // P2가 하이킥(발생 15) 시작 → P1이 잽(발생 7)으로 끊음
-  const ev = run(s, 20, (i) => (i === 2 ? press('1') : inp()), (i) => (i === 0 ? press('4') : inp()));
+  // P2가 내려베기(발생 15) 시작 → P1이 찌르기(발생 7)로 끊음
+  const ev = run(s, 20, (i) => (i === 2 ? press('t') : inp()), (i) => (i === 0 ? press('d') : inp()));
   const h = ev.find((e) => e.t === 'hit' && e.a === 0);
   assert.ok(h && h.counter, '카운터 히트');
-  assert.equal(s.f[1].hp, MAXHP - MV.jab.dmg * 1.25);
+  assert.equal(s.f[1].hp, MAXHP - MV.stab.dmg * 1.25);
 });
 
-test('어퍼컷 띄우기 → 공중 콤보 보정', () => {
+test('올려베기 띄우기 → 공중 콤보 보정', () => {
   const s = setup();
-  let ev = run(s, 25, (i) => (i === 0 ? press('2', 'f') : inp()));
+  let ev = run(s, 25, (i) => (i === 0 ? press('u', 'f') : inp()));
   const h = first(ev, 'hit');
   assert.ok(h && h.launch, '띄우기');
   assert.equal(s.f[1].state, 'launched');
-  // 낙하 전에 잽 → 보정 적용(juggle 1 → 85%)
+  // 낙하 전에 찌르기 → 보정 적용(juggle 1 → 85%)
   while (s.f[0].state !== 'idle') s.step();
   const hp0 = s.f[1].hp;
-  ev = run(s, 12, (i) => (i === 0 ? press('1') : inp()));
+  ev = run(s, 12, (i) => (i === 0 ? press('t') : inp()));
   const j = first(ev, 'hit');
   assert.ok(j && j.air, '공중 히트');
-  assert.ok(Math.abs(hp0 - s.f[1].hp - MV.jab.dmg * 0.85) < 1e-9);
+  assert.ok(Math.abs(hp0 - s.f[1].hp - MV.stab.dmg * 0.85) < 1e-9);
 });
 
-test('1→2→4 연속기가 이어짐', () => {
-  const s = setup();
-  // 다음 버튼은 현재 기술 시작 2프레임 뒤부터 받아줌 (히트스톱 포함 타이밍)
-  const ev = run(s, 90, (i) => (i === 0 ? press('1') : i === 6 ? press('2') : i === 22 ? press('4') : inp()));
-  const moves = ev.filter((e) => e.t === 'hit').map((e) => e.move);
-  assert.deepEqual(moves, ['jab', 'onetwo', 'onetwokick']);
+test('탭 → 가로 → 가로 연속기가 이어짐 (천천히 / 빠른 연타 모두)', () => {
+  for (const [a, b] of [[6, 22], [3, 6]]) {
+    const s = setup();
+    const ev = run(s, 90, (i) => (i === 0 ? press('t') : i === a ? press('h') : i === b ? press('h') : inp()));
+    const moves = ev.filter((e) => e.t === 'hit').map((e) => e.move);
+    assert.deepEqual(moves, ['stab', 'combo2', 'combo3'], `입력 ${a},${b}`);
+  }
 });
 
-test('뒤+2 망치: 슈퍼아머로 잽을 버팀', () => {
+test('뒤+아래로 긋기 투구 깨기: 슈퍼아머로 찌르기를 버팀', () => {
   const s = setup();
-  const ev = run(s, 40, (i) => (i === 0 ? press('2', 'b') : inp()), (i) => (i === 8 ? press('1') : inp()));
+  const ev = run(s, 40, (i) => (i === 0 ? press('d', 'b') : inp()), (i) => (i === 8 ? press('t') : inp()));
   assert.ok(first(ev, 'armor'), '아머 발동');
   const h = ev.find((e) => e.t === 'hit' && e.a === 0);
-  assert.ok(h && h.move === 'hammer', '망치가 끊기지 않고 맞음');
+  assert.ok(h && h.move === 'helm', '투구 깨기가 끊기지 않고 맞음');
 });
 
-test('뒤+3 다리쓸기: 하단 다운', () => {
+test('뒤+대각선 다리 후리기: 하단 다운', () => {
   const s = setup();
-  const ev = run(s, 30, (i) => (i === 0 ? press('3', 'b') : inp()));
+  const ev = run(s, 30, (i) => (i === 0 ? press('l', 'b') : inp()));
   assert.equal(first(ev, 'hit').move, 'sweep');
   assert.equal(s.f[1].state, 'launched');
 });
 
-test('판정 각도: 옆으로 벗어난 상대에게 직선기는 헛치고, 옆+4 돌려차기는 맞음', () => {
+test('판정 각도: 옆으로 벗어난 상대에게 가로베기는 헛치고, 옆+가로 회전베기는 맞음', () => {
   // 공격자가 상대에서 1.1rad 빗나간 방향을 보고 있을 때 (추적 후에도 남는 각도)
-  const aim = (s) => { s.f[0].yaw = 1.1 + MV.straight.track * MV.straight.startup; };
+  const aim = (s) => { s.f[0].yaw = 1.1 + MV.slash_h.track * MV.slash_h.startup; };
   let s = setup(1.2); aim(s);
-  let ev = run(s, 30, (i) => (i === 0 ? press('2') : inp()));
-  assert.ok(!first(ev, 'hit'), '스트레이트 헛침');
+  let ev = run(s, 30, (i) => (i === 0 ? press('h') : inp()));
+  assert.ok(!first(ev, 'hit'), '가로베기 헛침');
   s = setup(1.2); aim(s);
-  ev = run(s, 30, (i) => (i === 0 ? press('4', 's') : inp()));
-  assert.equal(first(ev, 'hit')?.move, 'homing', '돌려차기 적중');
+  ev = run(s, 30, (i) => (i === 0 ? press('h', 's') : inp()));
+  assert.equal(first(ev, 'hit')?.move, 'spin', '회전베기 적중');
 });
 
-test('옆+4 돌려차기는 옆걸음 중인 상대를 잡음', () => {
+test('옆+가로 회전베기는 옆걸음 중인 상대를 잡음', () => {
   const s = setup(1.3);
-  const ev = run(s, 30, (i) => (i === 0 ? press('4', 's') : inp()), () => inp({ mx: 1 }));
-  assert.equal(first(ev, 'hit')?.move, 'homing');
+  const ev = run(s, 30, (i) => (i === 0 ? press('h', 's') : inp()), () => inp({ mx: 1 }));
+  assert.equal(first(ev, 'hit')?.move, 'spin');
 });
 
 test('구르기 무적', () => {
   const s = setup();
-  const ev = run(s, 20, (i) => (i === 0 ? press('2') : inp()), (i) => inp({ roll: i === 1, my: -1 }));
+  const ev = run(s, 20, (i) => (i === 0 ? press('h') : inp()), (i) => inp({ roll: i === 1, my: -1 }));
   assert.ok(!first(ev, 'hit'));
   assert.ok(first(ev, 'roll'));
 });
@@ -150,7 +151,7 @@ test('구르기 무적', () => {
 test('스태미나: 가드 스태미나를 다 깎으면 가드 브레이크', () => {
   const s = setup();
   s.f[1].st = 20;
-  const ev = run(s, 40, (i) => (i === 0 ? press('2', 'b') : inp()), () => inp({ guard: true }));
+  const ev = run(s, 40, (i) => (i === 0 ? press('d', 'b') : inp()), () => inp({ guard: true }));
   const b = first(ev, 'block');
   assert.ok(b && b.brk, '가드 브레이크');
 });
@@ -191,7 +192,7 @@ test('연습 모드: 타이머 없음 + 체력 회복', () => {
   const s = new Sim({ mode: 'practice', seed: 1 });
   while (s.phase !== 'fight') s.step();
   s.f[0].reset(0, -0.6, 0); s.f[1].reset(0, 0.6, Math.PI);
-  run(s, 20, (i) => (i === 0 ? press('1') : inp()));
+  run(s, 20, (i) => (i === 0 ? press('t') : inp()));
   assert.ok(s.f[1].hp < MAXHP);
   run(s, 90);
   assert.equal(s.f[1].hp, MAXHP);
