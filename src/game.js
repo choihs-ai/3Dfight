@@ -20,6 +20,7 @@ export class Game {
   }
   applyChars() {
     this.view.setCharacters(this.chars);
+    this.view.warmup();
     const hex = (v) => '#' + v.map((x) => Math.round(Math.min(1, x) * 255).toString(16).padStart(2, '0')).join('');
     document.documentElement.style.setProperty('--el', hex(this.chars[0].trail[1]));
     document.querySelector('#p1Name').textContent = this.chars[0].name;

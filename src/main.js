@@ -91,11 +91,15 @@ const qs = new URLSearchParams(location.search);
 if (qs.has('auto')) { game.auto = true; game.diff = qs.get('auto') || 'normal'; game.startMatch(); }
 else game.startDemo();
 
+// ?fps 를 주소 뒤에 붙이면 프레임·해상도·그리기 호출 수 표시 (폰에서 끊김 확인용)
+let fpsEl = null, fpsN = 0, fpsT = 0;
+if (qs.has('fps')) { fpsEl = document.createElement('div'); fpsEl.style.cssText = 'position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 80px);transform:translateX(-50%);z-index:20;font:12px monospace;background:#000a;padding:2px 6px;border-radius:4px;pointer-events:none'; document.body.appendChild(fpsEl); }
 let last = performance.now();
 function loop(now) {
   requestAnimationFrame(loop);
   let dt = (now - last) / 1000; last = now;
   if (dt > 0.1) dt = 0.1; if (dt < 0) dt = 0;
   game.frame(dt);
+  if (fpsEl) { fpsN++; fpsT += dt; if (fpsT >= 0.5) { const info = view.renderer.info.render; fpsEl.textContent = `${Math.round(fpsN / fpsT)}fps · 해상도x${view.dpr} · draw ${info.calls}`; fpsN = 0; fpsT = 0; } }
 }
 requestAnimationFrame(loop);

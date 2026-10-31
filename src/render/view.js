@@ -27,11 +27,13 @@ export class View {
     this.camera = new LockOnCamera();
     this.fx = [0, 1].map((i) => ({ anim: new ProcAnimator(i), flash: 0, flashCol: [1, 1, 1], hpLag: MAXHP, lagDelay: 0 }));
     this.setCharacters([CHARACTERS[1], CHARACTERS[0]]);
+    this.warmup();
     // Mixamo 모션 검객 모델 (불러오기 전·실패 시에는 박스 검객으로 표시)
     this.modelState = 'loading';
     loadSwordsman(import.meta.env.BASE_URL + 'models/swordsman.glb').then(() => {
       this.modelState = 'ready';
       this.setCharacters(this.fx.map((f) => f.ch), true);
+      this.warmup();
       if (this.sim) this.fx.forEach((f, i) => { f.anim.reset(); f.anim.fk(this.sim.f[i]); });
     }).catch((e) => { console.warn('검객 모델을 불러오지 못해 박스 검객으로 표시합니다', e); this.modelState = 'failed'; });
     this.emit = [0, 0, 0];
@@ -51,9 +53,26 @@ export class View {
       if (this.sim) f.anim.fk(this.sim.f[i]);
     });
   }
+  // 셰이더를 미리 컴파일 (처음 칼을 휘두르거나 이펙트가 나올 때 멈칫하는 것 방지)
+  warmup() {
+    const hidden = [];
+    this.scene.traverse((o) => { if (!o.visible) { hidden.push(o); o.visible = true; } });
+    try { this.renderer.compile(this.scene, this.camera.cam); } catch (e) { console.warn(e); }
+    for (const o of hidden) o.visible = false;
+  }
+  // 프레임이 계속 느리면 해상도를 단계적으로 낮춤 (아이폰 발열·저사양 대응)
+  adapt(dt) {
+    this.dtAvg = (this.dtAvg || 1 / 60) * 0.95 + dt * 0.05;
+    this.slowT = this.dtAvg > 1 / 50 ? (this.slowT || 0) + dt : 0;
+    if (this.slowT > 2 && this.dpr > 1) {
+      this.dpr = Math.max(1, this.dpr - 0.25); this.slowT = 0;
+      this.renderer.setPixelRatio(this.dpr); this.renderer.setSize(Math.max(1, innerWidth), Math.max(1, innerHeight), false);
+    }
+  }
   resize() {
     const W = Math.max(1, innerWidth), H = Math.max(1, innerHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    if (!this.dpr) this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    this.renderer.setPixelRatio(this.dpr);
     this.renderer.setSize(W, H, false);
     this.portrait = H > W;
     this.camera.cam.aspect = W / H;
@@ -89,6 +108,7 @@ export class View {
     }
   }
   render(dt, t, sim, orbit) {
+    this.adapt(dt);
     const [P, E] = sim.f;
     this.camera.update(dt, t, P, E, this.fx[0].anim.rootH, this.portrait, orbit);
     for (let i = 0; i < 2; i++) {

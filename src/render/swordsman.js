@@ -62,9 +62,9 @@ export class SwordsmanRig {
     scene.add(this.group);
     this.bone = (n) => this.skel.name === 'mixamorig' + n ? this.skel : this.skel.getObjectByName('mixamorig' + n);
     this.rim = { value: new THREE.Vector3(...ch.rim).multiplyScalar(0.9) };
-    this.mats = {};
-    for (const k in ch.colors) this.mats[k] = toonMat(ch.colors[k], this.rim);
+    this.mats = { blade: toonMat(ch.colors.blade, this.rim) };
     this.buildBody();
+    this.mats.body = this.bodyMat;
     // 애니메이션
     this.mixer = new THREE.AnimationMixer(this.skel);
     this.clips = {}; this.actions = {};
@@ -142,27 +142,53 @@ export class SwordsmanRig {
       }
       g.rot = g.rot || []; g.rot.push([n0, g.v.length, BLADE_Q, GRIP]);
     });
-    this.meshes = [];
+    // ---- 모든 부품을 스킨 메시 하나로 합침 (그리기 호출: 몸 1 + 외곽선 1 + 칼 1) ----
+    this.group.updateMatrixWorld(true);
+    const bones = [];
+    this.skel.traverse((o) => bones.push(o));
+    const boneIdx = new Map(bones.map((o, i) => [o, i]));
+    const pos = [], nrm = [], col = [], si = [], sw = [];
+    const bladeParts = [];
+    const v = new THREE.Vector3(), nv = new THREE.Vector3(), nm = new THREE.Matrix3(), c = new THREE.Color();
     for (const { bone, color, g } of parts.values()) {
-      // 부품별 회전/이동 적용
-      if (g.rot) for (const [a, b, q, off] of g.rot) {
-        const v = new THREE.Vector3(), nrm = new THREE.Vector3();
-        for (let i = a; i < b; i += 3) {
+      // 부품별 회전/이동 (뼈 로컬)
+      if (g.rot) for (const [ra, rb, q, off] of g.rot) {
+        for (let i = ra; i < rb; i += 3) {
           v.set(g.v[i], g.v[i + 1], g.v[i + 2]).applyQuaternion(q); if (off) v.add(off);
           g.v[i] = v.x; g.v[i + 1] = v.y; g.v[i + 2] = v.z;
-          nrm.set(g.n[i], g.n[i + 1], g.n[i + 2]).applyQuaternion(q);
-          g.n[i] = nrm.x; g.n[i + 1] = nrm.y; g.n[i + 2] = nrm.z;
+          nv.set(g.n[i], g.n[i + 1], g.n[i + 2]).applyQuaternion(q);
+          g.n[i] = nv.x; g.n[i + 1] = nv.y; g.n[i + 2] = nv.z;
         }
       }
-      const geo = g.build();
-      const m = new THREE.Mesh(geo, this.mats[color]);
-      bone.add(m); this.meshes.push(m);
-      if (color !== 'blade') {
-        const og = geo.clone(); og.deleteAttribute('normal');
-        const merged = mergeVertices(og, 1e-4); merged.computeVertexNormals();
-        const o = new THREE.Mesh(merged, OUTLINE); bone.add(o); this.meshes.push(o);
+      if (color === 'blade') { bladeParts.push({ bone, g }); continue; }
+      // 기본 자세(바인드 포즈) 월드 좌표로 옮겨서 합침
+      const M = bone.matrixWorld; nm.getNormalMatrix(M);
+      c.set(C[color]);
+      const bi = boneIdx.get(bone);
+      for (let i = 0; i < g.v.length; i += 3) {
+        v.set(g.v[i], g.v[i + 1], g.v[i + 2]).applyMatrix4(M); pos.push(v.x, v.y, v.z);
+        nv.set(g.n[i], g.n[i + 1], g.n[i + 2]).applyMatrix3(nm).normalize(); nrm.push(nv.x, nv.y, nv.z);
+        col.push(c.r, c.g, c.b); si.push(bi, 0, 0, 0); sw.push(1, 0, 0, 0);
       }
     }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
+    geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
+    this.skeleton = new THREE.Skeleton(bones);
+    this.bodyMat = toonMat('#ffffff', this.rim); this.bodyMat.vertexColors = true;
+    const body = new THREE.SkinnedMesh(geo, this.bodyMat);
+    // 외곽선: 같은 정점을 합쳐 부드러운 법선으로 바깥쪽으로 밀어낸 뒷면
+    const og = new THREE.BufferGeometry();
+    og.setAttribute('position', geo.getAttribute('position')); og.setAttribute('skinIndex', geo.getAttribute('skinIndex')); og.setAttribute('skinWeight', geo.getAttribute('skinWeight'));
+    const merged = mergeVertices(og, 1e-4); merged.computeVertexNormals();
+    const outline = new THREE.SkinnedMesh(merged, OUTLINE);
+    for (const m of [body, outline]) { m.frustumCulled = false; this.inner.add(m); m.bind(this.skeleton, new THREE.Matrix4()); }
+    this.meshes = [body, outline];
+    // 칼은 원소 빛을 띠어야 해서 따로 (오른손에 붙임)
+    for (const { bone, g } of bladeParts) { const m = new THREE.Mesh(g.build(), this.mats.blade); bone.add(m); this.meshes.push(m); }
   }
   // ---------- 애니메이터 ----------
   reset() {
