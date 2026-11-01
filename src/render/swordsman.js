@@ -256,6 +256,15 @@ export class SwordsmanRig {
       }
       case 'getup': return { key: 'death', L: [['death', (this.dur('death') - 0.01) * (1 - Math.min(1, f / 20)), 1]] };
       case 'roll': return { key: 'roll', L: [['roll', 0.55 + Math.min(1, f / 26) * 0.95, 1]], fade: 2 };
+      // ---- 오의 ----
+      case 'ougi': return f < 22 ? { key: 'ougiDash', L: [['run', (f / 60) * 1.6 % this.dur('run'), 1]], fade: 3 } : { key: 'ougiMiss', L: [['hit_body', Math.min(1, (f - 22) / 46) * this.dur('hit_body') * 0.8, 1]], fade: 5 };
+      case 'ougiCast': return { key: 'ougiCast', L: [['power_up', (f / 60) % this.dur('power_up'), 1]], fade: 8 };
+      case 'ougiHeld': return { key: 'ougiHeld', L: [['hit_body', 0.3, 1]], fade: 6 };
+      case 'ougiStrike': {
+        const cut = { fire: ['spin', 0.0, 1.75], water: ['slash4', 0.25, 1.3], thunder: ['inward', 0.7, 1.7], wind: ['spin', 0.0, 1.75] }[this.ch.id] || ['spin', 0, 1.75];
+        return { key: 'ougiStrike', L: [[cut[0], cut[1] + (cut[2] - cut[1]) * Math.min(1, f / 54), 1]], fade: 4 };
+      }
+      case 'ougiEnd': return { key: 'ougiEnd', L: [[st.idle, this.loopT % this.dur(st.idle), 1]], fade: 10 };
       case 'win': return { key: 'win', L: [['withdraw', Math.min(this.dur('withdraw') - 0.01, f / 60), 1]], fade: 6, sheathed: f > 62 };
     }
     return { key: 'idle', L: [[st.idle, 0, 1]] };

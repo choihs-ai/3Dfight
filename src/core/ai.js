@@ -1,19 +1,21 @@
 // CPU AI — 프로토타입 로직 그대로. sim.rng(시드 난수)를 써서 재현 가능.
 // 매 프레임 FrameInput을 만들어 돌려줌 (히트스톱 중/라운드 밖에서는 null).
 import { MV, resolveMove } from './moves.js';
+import { seeded } from './util.js';
 
 const RANGE_BONUS = 0.45; // 칼 사거리만큼 판단 거리도 늘림
 
 export const AIL = {
   practice: { idle: true },
-  easy: { flow: 0.15, react: 22, block: 0.25, dodge: 0.05, lowRead: 0.2, duck: 0, parry: 0, punish: 0.15, juggle: 0.25, aggro: 0.35, tempo: 1.5 },
-  normal: { flow: 0.4, react: 14, block: 0.5, dodge: 0.12, lowRead: 0.45, duck: 0.05, parry: 0.05, punish: 0.5, juggle: 0.65, aggro: 0.5, tempo: 1 },
-  hard: { flow: 0.7, react: 8, block: 0.72, dodge: 0.18, lowRead: 0.7, duck: 0.15, parry: 0.2, punish: 0.9, juggle: 0.95, aggro: 0.6, tempo: 0.7 },
+  easy: { ougi: 0.01, ougiSkill: 0.35, flow: 0.15, react: 22, block: 0.25, dodge: 0.05, lowRead: 0.2, duck: 0, parry: 0, punish: 0.15, juggle: 0.25, aggro: 0.35, tempo: 1.5 },
+  normal: { ougi: 0.03, ougiSkill: 0.55, flow: 0.4, react: 14, block: 0.5, dodge: 0.12, lowRead: 0.45, duck: 0.05, parry: 0.05, punish: 0.5, juggle: 0.65, aggro: 0.5, tempo: 1 },
+  hard: { ougi: 0.06, ougiSkill: 0.7, flow: 0.7, react: 8, block: 0.72, dodge: 0.18, lowRead: 0.7, duck: 0.15, parry: 0.2, punish: 0.9, juggle: 0.95, aggro: 0.6, tempo: 0.7 },
 };
 
 export class AI {
   constructor(sim, idx, lv) {
     this.sim = sim; this.idx = idx; this.L = AIL[lv]; this.lv = lv;
+    this.rng = seeded((sim.seed || 1) * 31 + idx * 7919); // AI 전용 난수 (대전 상태와 분리)
     this.intent = 'approach'; this.iT = 0; this.watch = -1; this.plan = null; this.queue = []; this.sd = 1;
     this.punished = -1; this.juggled = -1; this.flowed = -1; this.atk = null; this.waitG = false; this.roundSeq = -1;
   }
@@ -24,10 +26,16 @@ export class AI {
     const sim = this.sim;
     if (sim.roundSeq !== this.roundSeq) { this.roundSeq = sim.roundSeq; this.queue = []; this.plan = null; }
     if (sim.phase !== 'fight' || sim.hitstop > 0) return null;
+    // 오의 시네마틱: 내가 시전자면 잠시 뒤 문양 점수를 냄 (난이도가 높을수록 정확)
+    if (sim.cine) {
+      const c = sim.cine;
+      if (c.a === this.idx && c.strikeF < 0 && c.f === 70) return { mx: 0, my: 0, guard: false, gp: false, roll: false, btns: [], score: Math.round(100 * Math.min(1, (this.L.ougiSkill ?? 0.6) + this.rng() * 0.25)) };
+      return null;
+    }
     return this.update(sim.frame + 1);
   }
   update(now) {
-    const me = this.me, op = this.op, L = this.L, R = this.sim.rng;
+    const me = this.me, op = this.op, L = this.L, R = this.rng;
     const out = { mx: 0, my: 0, guard: false, gp: false, roll: false, btns: [] };
     if (L.idle) return out;
     const press = (b, d) => out.btns.push({ b, dir: d, a: b === 'h' && R() < 0.5 ? 3.14 : 0 }); // 가로 긋기는 좌우 무작위
@@ -66,6 +74,8 @@ export class AI {
         const c = pool[(R() * pool.length) | 0]; press(c[0], c[1]);
       }
     }
+    // 기 게이지가 꽉 차면 가까울 때 가끔 오의
+    if (me.state === 'idle' && !wantG && me.ki >= 100 && dist < 2.0 && op.state !== 'roll' && R() < (L.ougi ?? 0.03)) { out.ougi = true; }
     if (me.state === 'idle' && !wantG) {
       if (op.state === 'attack' && op.move && op.f >= op.move.startup + op.move.active && op.move.total - op.f > 9 && dist < 1.9 + RANGE_BONUS && this.punished !== op.moveUid) {
         this.punished = op.moveUid;
@@ -97,7 +107,7 @@ export class AI {
     return out;
   }
   pick(dist) {
-    const L = this.L, R = this.sim.rng, r = R(), me = this.me;
+    const L = this.L, R = this.rng, r = R(), me = this.me;
     this.sd = R() < 0.5 ? 1 : -1;
     let T = 30;
     if (me.st < 20) { this.intent = 'back'; T = 30; }

@@ -62,3 +62,17 @@ npm run e2e      # 빌드본을 실제 브라우저(Playwright)로 띄워 CPU끼
 - 기술 ↔ 클립 타이밍(시작/칼이 닿는 순간/끝): `src/anim/clipMap.js`
 - 몸(하오리·하카마·머리·카타나)은 `src/render/swordsman.js`에서 코드로 만들어 뼈에 붙임 (툰 셰이딩 + 외곽선)
 - 모델을 못 불러오면 박스 검객(코드 자세)으로 자동 대체
+
+## 오의
+
+- 기(氣) 게이지: 때리면 피해×0.9, 맞으면 ×1.1, 막으면 +4, 패링 +12 (`src/core/combat.js`)
+- 꽉 차면 오의 버튼 → 무적 돌진(`OUGI_DASH`) → 닿으면 시네마틱: 시간이 멈추고 원소 문양을 그림 → 점수(0~100)에 비례한 피해 (`OUGI` in `src/core/sim.js`)
+- 문양 본보기·채점: `src/input/shapes.js` (원 / 물결 / 번개 / 소용돌이, 방향·좌우·시작점 무관)
+- 화면: `src/ui/ougi.js` (컷인 + 그리기 캔버스)
+
+## 온라인 대전
+
+- 방 만들기 → 4자리 번호 → 친구가 참가. PeerJS(WebRTC P2P, 공개 신호 서버 0.peerjs.com) — `src/net/transport.js`
+- 락스텝 동기화 `src/net/lockstep.js`: 입력 지연 5프레임, 두 기기가 같은 입력으로 같은 sim을 진행
+  - 기기마다 수학 함수 결과가 미세하게 다를 수 있어 방장이 3초마다 상태를 보내고, 손님은 지문이 다르면 방장 상태로 맞춘 뒤 이후 프레임을 다시 계산
+- 테스트: `test/net.test.js` (지연·뒤섞임 가짜 네트워크), 브라우저 `?net=local` (같은 브라우저 탭끼리 BroadcastChannel)

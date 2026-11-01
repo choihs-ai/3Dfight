@@ -82,7 +82,7 @@ export class View {
   resetRound(sim) {
     this.sim = sim;
     this.fx.forEach((f, i) => { f.anim.reset(); f.anim.fk(sim.f[i]); f.trail.clear(); f.flash = 0; f.hpLag = MAXHP; f.lagDelay = 0; });
-    this.camera.snap = true;
+    this.camera.snap = true; this.camera.cine = null;
   }
   hitFlash(i, frames, col) { const f = this.fx[i]; f.flash = frames; f.flashCol = col; }
   // 공격자 칼끝이 화면에서 움직인 방향(각도) — 붓터치 방향용
@@ -118,8 +118,9 @@ export class View {
   }
   render(dt, t, sim, orbit) {
     this.adapt(dt);
-    const [P, E] = sim.f;
-    this.camera.update(dt, t, P, E, this.fx[0].anim.rootH, this.portrait, orbit);
+    const me = this.me || 0, P = sim.f[me], E = sim.f[1 - me];
+    if (this.camera.cine && this.camera.cine.t > 50 && !sim.cine) this.camera.cine = null; // 오의 연출 끝
+    this.camera.update(dt, t, P, E, this.fx[me].anim.rootH, this.portrait, orbit, sim);
     for (let i = 0; i < 2; i++) {
       const F = sim.f[i], fx = this.fx[i];
       const fl = fx.flash > 0 ? fx.flash / 5 : 0, fc = fx.flashCol, e = this.emit;

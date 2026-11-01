@@ -6,7 +6,8 @@ import { Game } from './game.js';
 import { Sound } from './audio/sound.js';
 import { AIL } from './core/ai.js';
 import { MV } from './core/moves.js';
-import { CHARACTERS } from './data/characters.js';
+import { CHARACTERS, CHAR_BY_ID } from './data/characters.js';
+import { hostRoom, joinRoom } from './net/transport.js';
 
 const $ = (s) => document.querySelector(s);
 function fatal(msg) { show('#title', false); $('#fatalMsg').textContent = msg; show('#fatal', true); }
@@ -53,22 +54,90 @@ function renderCards() {
   }).join('');
   document.querySelectorAll('#cards .card').forEach((el) => el.addEventListener('click', () => { pick = +el.dataset.i; Sound.muted = false; Sound.play('ui'); Sound.muted = game.mode === 'demo'; renderCards(); }));
 }
-$('#startBtn').addEventListener('click', () => { Sound.init(); renderCards(); show('#title', false); show('#charSel', true); });
-$('#charBack').addEventListener('click', () => { show('#charSel', false); show('#title', true); });
+$('#startBtn').addEventListener('click', () => { Sound.init(); lobby = null; renderCards(); $('#fightBtn').textContent = '대전 시작'; $('#fightBtn').disabled = false; show('#title', false); show('#charSel', true); });
+$('#charBack').addEventListener('click', () => { if (lobby) leaveLobby(); show('#charSel', false); show('#title', true); });
 $('#fightBtn').addEventListener('click', () => {
   Sound.init();
+  if (lobby) { // 온라인: 내 선택을 보내고 상대를 기다림
+    lobby.picks[lobby.role] = CHARACTERS[pick].id;
+    lobby.t.send({ k: 'pick', ch: CHARACTERS[pick].id });
+    $('#fightBtn').textContent = '상대 기다리는 중…'; $('#fightBtn').disabled = true;
+    maybeStart(); return;
+  }
   const others = CHARACTERS.filter((_, i) => i !== pick);
   game.chars = [CHARACTERS[pick], others[(Math.random() * others.length) | 0]];
   show('#charSel', false); game.startMatch();
 });
+
+// ---------- 온라인 로비 ----------
+const NETKIND = new URLSearchParams(location.search).get('net') === 'local' ? 'local' : 'peer'; // ?net=local: 같은 브라우저 탭끼리 테스트
+let lobby = null, hosting = null;
+const olStatus = (t) => { $('#olStatus').textContent = t; };
+function olReset() { show('#olMenu', true); show('#olWait', false); olStatus(''); $('#olCode').value = ''; }
+$('#onlineBtn').addEventListener('click', () => { Sound.init(); olReset(); show('#title', false); show('#online', true); });
+$('#olBack').addEventListener('click', () => { if (hosting) { hosting.cancel(); hosting = null; } leaveLobby(); show('#online', false); show('#title', true); });
+$('#olHost').addEventListener('click', async () => {
+  olStatus('방 만드는 중…');
+  try {
+    hosting = await hostRoom(NETKIND);
+    show('#olMenu', false); show('#olWait', true); $('#olRoom').textContent = hosting.code; olStatus('친구를 기다리는 중…');
+    const h = hosting;
+    const t = await h.connected;
+    if (hosting !== h) return; // 취소됨
+    hosting = null; onConnected(t, 0);
+  } catch (e) { olStatus(e.message); show('#olMenu', true); show('#olWait', false); }
+});
+$('#olJoin').addEventListener('click', async () => {
+  const code = $('#olCode').value.trim();
+  if (!/^\d{4}$/.test(code)) { olStatus('방 번호 4자리를 입력하세요.'); return; }
+  olStatus('연결 중…');
+  try { onConnected(await joinRoom(code, NETKIND), 1); } catch (e) { olStatus(e.message); }
+});
+function onConnected(t, role) {
+  lobby = { t, role, picks: [null, null] };
+  t.onMessage((m) => lobbyMsg(m));
+  t.onClose(() => netClosed());
+  t.send({ k: 'hello', v: __APP_VERSION__ });
+  Sound.play('bell');
+  show('#online', false); renderCards(); $('#fightBtn').textContent = '준비 완료'; $('#fightBtn').disabled = false; show('#charSel', true);
+}
+function lobbyMsg(m) {
+  if (game.onNet(m)) return;
+  if (!lobby) return;
+  if (m.k === 'hello' && m.v !== __APP_VERSION__) hud.banner('버전이 달라요 — 둘 다 새로고침', 'ko');
+  if (m.k === 'pick') { lobby.picks[1 - lobby.role] = m.ch; maybeStart(); }
+  if (m.k === 'start' && lobby.role === 1) {
+    show('#charSel', false); show('#result', false);
+    game.startOnline({ me: 1, seed: m.seed, chars: m.chars.map((id) => CHAR_BY_ID[id]), transport: lobby.t });
+  }
+}
+function maybeStart() {
+  if (!lobby || lobby.role !== 0 || !lobby.picks[0] || !lobby.picks[1]) return;
+  const seed = (Math.random() * 2 ** 31) | 0, chars = lobby.picks.map((id) => CHAR_BY_ID[id]);
+  lobby.t.send({ k: 'start', seed, chars: lobby.picks });
+  show('#charSel', false);
+  game.startOnline({ me: 0, seed, chars, transport: lobby.t });
+}
+function leaveLobby() { if (lobby) { try { lobby.t.close(); } catch (_) { /* */ } lobby = null; } game.net = null; game.ls = null; }
+function netClosed() {
+  if (!lobby) return;
+  lobby = null; game.net = null;
+  if (game.mode === 'online' || game.mode === 'result' || !$('#charSel').classList.contains('hide')) {
+    hud.banner('상대와 연결이 끊겼어요', 'ko');
+    setTimeout(() => { show('#charSel', false); show('#result', false); game.ls = null; game.startDemo(); }, 1800);
+  }
+}
 $('#movesBtn').addEventListener('click', () => { movesFrom = '#title'; show('#title', false); show('#moves', true); });
 $('#movesClose').addEventListener('click', () => { show('#moves', false); show(movesFrom, true); });
 $('#pauseBtn').addEventListener('click', () => game.togglePause());
 $('#resumeBtn').addEventListener('click', () => game.togglePause());
 $('#pMoves').addEventListener('click', () => { movesFrom = '#pause'; show('#pause', false); show('#moves', true); });
 $('#pQuit').addEventListener('click', () => { show('#pause', false); game.paused = false; game.startDemo(); });
-$('#againBtn').addEventListener('click', () => { show('#result', false); game.startMatch(); });
-$('#rQuit').addEventListener('click', () => { show('#result', false); game.startDemo(); });
+$('#againBtn').addEventListener('click', () => {
+  if (game.ls && lobby) { game.rematch[game.me] = true; lobby.t.send({ k: 'rematch' }); $('#againBtn').textContent = '상대 기다리는 중…'; game.tryRematch(); return; }
+  show('#result', false); game.startMatch();
+});
+$('#rQuit').addEventListener('click', () => { show('#result', false); leaveLobby(); game.startDemo(); });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && (game.mode === 'match' || game.mode === 'practice') && !game.paused) game.togglePause();
 });

@@ -7,6 +7,10 @@ export const FLOW_WINDOW = 12;
 export const MAX_CHAIN = 5;          // 한 번에 이어지는 최대 기술 수
 export const FLOW_SKIP = 0.25;       // 이어지는 기술은 준비 동작(발생)의 앞 25%를 건너뜀
 
+// 오의: 기 게이지 꽉 차면 사용. 무적 돌진(OUGI_DASH) → 닿으면 시네마틱, 헛치면 큰 빈틈
+export const KI_MAX = 100;
+export const OUGI_DASH = { startup: 14, active: 8, recovery: 46, range: 2.1, arc: 1.2, speed: 0.16 };
+
 export class Fighter {
   constructor(idx, sim) {
     this.idx = idx;
@@ -21,12 +25,13 @@ export class Fighter {
       rollDir: [0, 0], rollAxis: 'x', rollSign: 1, armorOn: false, hitLevel: 'high',
       moveUid: 0, launchUid: 0, idleF: 0, moveStart: 0, chainStart: 0, chainN: 0, pendingNamed: false, gesture: 'h', swipeAng: 0,
       // 걷기 애니메이션용 정보 (wk: 0 변화없음 / 1 멈춤 / 2 앉음 / 3 걷기)
-      wk: 0, wmx: 0, wmy: 0, wph: 0,
+      wk: 0, wmx: 0, wmy: 0, wph: 0, ki: 0,
     });
   }
   invuln() {
     const s = this.state, f = this.f;
-    return (s === 'roll' && f >= 2 && f <= 15) || s === 'down' || (s === 'getup' && f < 14) || s === 'ko' || s === 'win';
+    return (s === 'roll' && f >= 2 && f <= 15) || s === 'down' || (s === 'getup' && f < 14) || s === 'ko' || s === 'win'
+      || (s === 'ougi' && f <= OUGI_DASH.startup + OUGI_DASH.active) || s === 'ougiCast' || s === 'ougiStrike' || s === 'ougiHeld' || (s === 'ougiEnd' && f < 10);
   }
   isCrouching() { return (this.state === 'idle' || this.state === 'blockstun') && this.crouch; }
   canBlock() { return (this.state === 'idle' && this.guard) || this.state === 'blockstun'; }
@@ -52,6 +57,12 @@ export class Fighter {
     // 흐름 연계로 이어진 기술은 준비 동작 앞부분을 건너뜀 (전용 연속기는 원래 프레임 그대로)
     if (chained && !named) this.f = Math.floor(m.startup * FLOW_SKIP);
   }
+  startOugi() {
+    this.state = 'ougi'; this.f = 0; this.ki = 0; this.hitDone = false; this.move = null;
+    this.guard = false; this.crouch = false; this.moveUid = ++this.sim.uid;
+    this.sim.emit({ t: 'ougiDash', i: this.idx });
+  }
+  gainKi(v) { this.ki = Math.min(KI_MAX, this.ki + v); }
   startRoll(inp, dx, dz) {
     let mx = inp.mx, my = inp.my;
     if (Math.hypot(mx, my) < 0.3) { mx = 0; my = -1; }
@@ -85,6 +96,8 @@ export class Fighter {
         this.guard = inp.guard && !this.exhaust;
         this.crouch = this.guard && inp.my < -0.45;
         this.yaw = turnTo(this.yaw, tYaw, 0.3);
+        // 오의 (기 게이지 꽉 참)
+        if (sim.frame - inp.ougiPressed <= 6 && this.ki >= KI_MAX) { inp.ougiPressed = -99; this.startOugi(); break; }
         const fresh = sim.frame - inp.rollPressed <= 6;
         if (fresh && !this.exhaust && this.st >= 10) { inp.rollPressed = -99; this.startRoll(inp, dx, dz); break; }
         const b = this.takeBuf(inp, 8);
@@ -117,6 +130,21 @@ export class Fighter {
         if (f >= m.total) { this.state = 'idle'; this.f = 0; this.move = null; this.idleF = 0; }
         break;
       }
+      case 'ougi': { // 무적 돌진 → 닿으면 시네마틱
+        const O = OUGI_DASH, f = this.f;
+        if (f < O.startup + O.active && dist > 0.9) { this.yaw = turnTo(this.yaw, tYaw, 0.25); this.x += Math.sin(this.yaw) * O.speed; this.z += Math.cos(this.yaw) * O.speed; }
+        if (f >= O.startup && f < O.startup + O.active && !this.hitDone) {
+          const fx = Math.sin(this.yaw), fz = Math.cos(this.yaw);
+          const ang = Math.acos(Math.max(-1, Math.min(1, (dx * fx + dz * fz))));
+          const okState = !op.invuln() && op.state !== 'launched';
+          if (dist <= O.range && ang <= O.arc && okState) { this.hitDone = true; sim.startCine(this, op); break; }
+        }
+        if (f >= O.startup + O.active + O.recovery) { this.state = 'idle'; this.f = 0; this.idleF = 0; }
+        break;
+      }
+      case 'ougiEnd':
+        if (this.f >= 24) { this.state = 'idle'; this.f = 0; this.idleF = 0; }
+        break;
       case 'hitstun': case 'blockstun': case 'parried':
         if (this.f >= this.stun) { this.state = 'idle'; this.f = 0; this.idleF = 0; }
         break;

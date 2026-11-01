@@ -1,7 +1,7 @@
 // 전투 로직 자동 테스트 — 브라우저 없이 Node에서 실행: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Sim, AI, MV, MAXHP, FLOW_WINDOW, MAX_CHAIN } from '../src/core/index.js';
+import { Sim, AI, MV, MAXHP, FLOW_WINDOW, MAX_CHAIN, OUGI, OUGI_DASH } from '../src/core/index.js';
 
 const inp = (o = {}) => ({ mx: 0, my: 0, guard: false, gp: false, roll: false, btns: [], ...o });
 const press = (b, dir = 'n', o = {}) => inp({ btns: [{ b, dir }], ...o });
@@ -226,4 +226,54 @@ test('흐름 연계: 최대 ' + MAX_CHAIN + '연속까지', () => {
   const starts = ev.filter((e) => e.t === 'whoosh' && e.i < 200).length;
   assert.ok(s.f[0].chainN < MAX_CHAIN, 'chainN 상한');
   assert.ok(starts >= 3, '여러 번 이어짐');
+});
+
+test('오의: 기 게이지 꽉 차면 돌진 → 닿으면 시네마틱 → 문양 점수만큼 피해', () => {
+  const s = setup(1.6);
+  s.f[0].ki = 100;
+  const ev = run(s, 30, (i) => inp({ ougi: i === 0 }));
+  assert.ok(first(ev, 'ougiStart'), '시네마틱 시작');
+  assert.equal(s.f[0].ki, 0, '게이지 소모');
+  assert.ok(s.cine, '시네마틱 중');
+  const hp0 = s.f[1].hp;
+  // 그리는 동안 시간이 멈춤(타이머 그대로), 점수 90 입력
+  const t0 = s.timer;
+  run(s, 40);
+  assert.equal(s.timer, t0, '그리는 동안 타이머 멈춤');
+  const ev2 = run(s, 120, (i) => inp(i === 10 ? { score: 90 } : {}));
+  const h = first(ev2, 'ougiHit');
+  assert.ok(h, '오의 적중');
+  assert.ok(Math.abs(hp0 - s.f[1].hp - (OUGI.dmgMin + (OUGI.dmgMax - OUGI.dmgMin) * 0.9)) < 1e-9, '점수 비례 피해');
+  assert.equal(s.f[1].state, 'launched');
+});
+
+test('오의: 게이지가 덜 찼으면 안 나감 / 멀면 헛돌진 후 큰 빈틈', () => {
+  let s = setup(1.6); s.f[0].ki = 60;
+  let ev = run(s, 20, (i) => inp({ ougi: i === 0 }));
+  assert.ok(!first(ev, 'ougiDash'));
+  s = setup(6); s.f[0].ki = 100;
+  ev = run(s, OUGI_DASH.startup + OUGI_DASH.active + 5, (i) => inp({ ougi: i === 0 }));
+  assert.ok(first(ev, 'ougiDash') && !first(ev, 'ougiStart'), '헛돌진');
+  assert.equal(s.f[0].state, 'ougi', '후딜 중');
+});
+
+test('오의: 그리지 않으면 시간 끝에 기본 점수로 발동', () => {
+  const s = setup(1.6); s.f[0].ki = 100;
+  run(s, 30, (i) => inp({ ougi: i === 0 }));
+  const ev = run(s, OUGI.draw + OUGI.strike + 10);
+  assert.equal(first(ev, 'ougiHit').score, OUGI.autoScore);
+});
+
+test('상태 저장/복원: 복원 후 같은 입력이면 같은 결과 (온라인 동기화 기반)', () => {
+  const mk = () => { const s = new Sim({ mode: 'match', seed: 9 }); return [s, new AI(s, 0, 'hard'), new AI(s, 1, 'normal')]; };
+  const [a, a0, a1] = mk();
+  for (let i = 0; i < 700; i++) a.step([a0.input(), a1.input()]);
+  const snap = a.serialize();
+  // 이후 입력 기록
+  const log = [];
+  for (let i = 0; i < 900; i++) { const x = [a0.input(), a1.input()]; log.push(JSON.parse(JSON.stringify(x))); a.step(x); }
+  const b = new Sim({ mode: 'match', seed: 1 });
+  b.load(snap);
+  for (const x of log) b.step(x);
+  assert.equal(b.hash(), a.hash(), '같은 상태');
 });

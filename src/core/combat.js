@@ -32,16 +32,18 @@ export function applyHit(sim, A, D, r) {
   if (r.type === 'hit') {
     const dealt = D.takeHit(A, m, r.counter);
     D.combo++;
+    A.gainKi(dealt * 0.9); D.gainKi(dealt * 1.1); // 기 게이지: 때려도 맞아도 참
     sim.hitstop = Math.max(sim.hitstop, m.hitstop + (r.counter ? 3 : 0));
     sim.emit({ t: 'hit', ...base, counter: !!r.counter, air: !!r.air, launch: !!m.launch && !r.air, combo: D.combo, dealt, ko: D.hp <= 0 });
   } else if (r.type === 'block') {
     const brk = D.takeBlock(A, m);
+    A.gainKi(2); D.gainKi(4);
     sim.hitstop = Math.max(sim.hitstop, brk ? 10 : 5);
     A.vx -= Math.sin(A.yaw) * m.bpush * 0.4; A.vz -= Math.cos(A.yaw) * m.bpush * 0.4;
     sim.emit({ t: 'block', ...base, brk });
   } else if (r.type === 'parry') {
     A.state = 'parried'; A.f = 0; A.stun = 52; A.move = null;
-    D.state = 'idle'; D.f = 0; D.lastGuardPress = -99; D.st = Math.min(100, D.st + 15);
+    D.state = 'idle'; D.f = 0; D.lastGuardPress = -99; D.st = Math.min(100, D.st + 15); D.gainKi(12);
     sim.hitstop = Math.max(sim.hitstop, 14);
     sim.emit({ t: 'parry', ...base });
   } else if (r.type === 'armor') {

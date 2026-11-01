@@ -75,6 +75,60 @@ for (const lv of ['easy', 'normal', 'hard']) {
   check(errors.length === 0, `auto=${lv}: 콘솔 에러 없음 ${errors.join(' | ')}`);
   await page.close();
 }
+// 오의: 게이지 채우고 → 돌진 → 원 그리기 → 피해
+{
+  const { page, errors } = await open('', { width: 844, height: 390 });
+  await page.waitForFunction(() => window.__game.view.modelState !== 'loading');
+  await page.click('[data-d="practice"]'); await page.click('#startBtn'); await page.click('#fightBtn');
+  await page.evaluate(() => { window.__G.freeze = true; window.__step(90); const s = window.__G.sim; s.f[0].reset(0, -0.8, 0); s.f[1].reset(0, 0.8, Math.PI); s.f[0].ki = 100; window.__step(2); });
+  check(await page.isVisible('#ougiBtn'), '오의 버튼 표시');
+  await page.click('#ougiBtn', { force: true }); // 깜빡이는 애니메이션이 있어서 강제 클릭
+  await page.evaluate(() => window.__step(40));
+  const cine = await page.evaluate(() => !!window.__G.sim.cine && !document.querySelector('#ougiLayer').classList.contains('hide'));
+  check(cine, '오의 시네마틱 + 그리기 화면');
+  await page.screenshot({ path: join(outDir, 'ougi-draw.png') });
+  // 화면 가운데에 원 그리기
+  const cx = 422, cy = 205, r = 110;
+  await page.mouse.move(cx + r, cy); await page.mouse.down();
+  for (let i = 1; i <= 40; i++) { const a = (i / 40) * Math.PI * 2; await page.mouse.move(cx + Math.cos(a) * r, cy + Math.sin(a) * r * 0.95); }
+  await page.mouse.up();
+  const grade = await page.textContent('#drawGrade');
+  check(/\d/.test(grade), `문양 점수 표시: ${grade}`);
+  await page.evaluate(() => window.__step(90));
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: join(outDir, 'ougi-hit.png') });
+  const hp = await page.evaluate(() => window.__F[1].hp);
+  check(hp < 85, `오의 피해 (상대 체력 ${hp.toFixed(1)})`);
+  check(errors.length === 0, `오의: 콘솔 에러 없음 ${errors.join(' | ')}`);
+  await page.close();
+}
+// 온라인 (같은 브라우저 탭 두 개, ?net=local): 방 만들기/참가 → 선택 → 대전 → 두 화면 상태 동일
+{
+  const ctx = await browser.newContext({ viewport: { width: 640, height: 360 } });
+  const A = await ctx.newPage(), B = await ctx.newPage();
+  const errs = [];
+  for (const p of [A, B]) p.on('pageerror', (e) => errs.push(String(e)));
+  for (const p of [A, B]) { await p.goto(url + '?net=local'); await p.waitForFunction(() => window.__game); }
+  await A.click('#onlineBtn'); await A.click('#olHost');
+  await A.waitForSelector('#olWait:not(.hide)');
+  const code = (await A.textContent('#olRoom')).trim();
+  await B.click('#onlineBtn'); await B.fill('#olCode', code); await B.click('#olJoin');
+  await A.waitForSelector('#charSel:not(.hide)'); await B.waitForSelector('#charSel:not(.hide)');
+  await A.click('#cards .card:nth-child(1)'); await B.click('#cards .card:nth-child(4)');
+  await A.click('#fightBtn'); await B.click('#fightBtn');
+  await A.waitForFunction(() => window.__G.mode === 'online'); await B.waitForFunction(() => window.__G.mode === 'online');
+  check(true, `온라인 연결 + 대전 시작 (방 ${code})`);
+  // 몇 초 동안 서로 공격
+  for (let i = 0; i < 12; i++) { await A.keyboard.press(['u', 'i', 'k', 'y'][i % 4]); await B.keyboard.press(['k', 'u', 'j', 'i'][i % 4]); await A.keyboard.down('w'); await A.waitForTimeout(250); await A.keyboard.up('w'); }
+  await A.waitForTimeout(1500);
+  const ha = await A.evaluate(() => ({ log: window.__game.hashLog || {}, f: window.__G.frame, me: window.__game.me })), hb = await B.evaluate(() => ({ log: window.__game.hashLog || {}, f: window.__G.frame, me: window.__game.me }));
+  const common = Object.keys(ha.log).filter((k) => k in hb.log);
+  const same = common.filter((k) => ha.log[k] === hb.log[k]).length;
+  check(common.length >= 3 && same === common.length, `두 기기 상태 일치 ${same}/${common.length} (프레임 ${ha.f} / ${hb.f}, 나: ${ha.me} / ${hb.me})`);
+  await A.screenshot({ path: join(outDir, 'online-A.png') }); await B.screenshot({ path: join(outDir, 'online-B.png') });
+  check(errs.length === 0, `온라인: 에러 없음 ${errs.join(' | ')}`);
+  await ctx.close();
+}
 await browser.close();
 server.close();
 process.exit(fail ? 1 : 0);

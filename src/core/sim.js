@@ -1,12 +1,17 @@
 // 대전 시뮬레이션 — 60fps 고정 프레임. 브라우저 없이(Node) 돌아감.
 // step(inputs) 한 번 = 1프레임. inputs[i] = FrameInput | null
-//   FrameInput = { mx, my, guard, gp(가드 누른 순간), roll(회피 누른 순간), btns:[{b:'t'|'h'|'u'|'d'|'l'(긋기), dir:'n'|'f'|'b'|'s', a:긋기 각도}] }
+//   FrameInput = { mx, my, guard, gp(가드 누른 순간), roll(회피 누른 순간), btns:[{b:'t'|'h'|'u'|'d'|'l'(긋기), dir:'n'|'f'|'b'|'s', a:긋기 각도}],
+//                  ougi(오의 버튼 누른 순간), score(오의 문양 그리기 점수 0~100, 다 그렸을 때 한 번) }
 import { DT, MAXHP, ARENA_R, seeded } from './util.js';
 import { Fighter } from './fighter.js';
 import { tryHit, applyHit } from './combat.js';
+import { MV } from './moves.js';
 
-const newInputState = () => ({ mx: 0, my: 0, guard: false, guardPressed: false, rollPressed: -99, buf: [] });
-const EMPTY = () => ({ mx: 0, my: 0, guard: false, guardPressed: false, rollPressed: -99, buf: [] });
+const newInputState = () => ({ mx: 0, my: 0, guard: false, guardPressed: false, rollPressed: -99, ougiPressed: -99, score: -1, buf: [] });
+const EMPTY = () => newInputState();
+
+// 오의 시네마틱: 문양 그리는 시간(프레임), 그 뒤 연출 시간, 피해량
+export const OUGI = { draw: 150, strike: 54, dmgMin: 16, dmgMax: 34, autoScore: 35 };
 export const NEUTRAL = Object.freeze({ mx: 0, my: 0, guard: false, gp: false, roll: false, btns: [] });
 
 export const ROUND_TIME = 60;
@@ -15,11 +20,11 @@ export const WINS_NEEDED = 2; // 3판 2선승
 export class Sim {
   // mode: 'match' | 'practice' | 'demo'
   constructor({ mode = 'match', seed = 1 } = {}) {
-    this.mode = mode;
+    this.mode = mode; this.seed = seed;
     this.rng = seeded(seed);
     this.frame = 0; this.uid = 0; this.hitstop = 0;
     this.round = 1; this.wins = [0, 0]; this.timer = ROUND_TIME;
-    this.phase = 'intro'; this.phaseT = 0; this.winner = -1; this.roundSeq = 0;
+    this.phase = 'intro'; this.phaseT = 0; this.winner = -1; this.roundSeq = 0; this.cine = null;
     this.f = [new Fighter(0, this), new Fighter(1, this)];
     this.ins = [newInputState(), newInputState()];
     this.events = [];
@@ -36,7 +41,7 @@ export class Sim {
     const [a, b] = this.f;
     a.reset(0, -2.4, 0); b.reset(0, 2.4, Math.PI);
     this.timer = ROUND_TIME; this.phase = this.mode === 'demo' ? 'fight' : 'intro'; this.phaseT = 0;
-    this.winner = -1; this.hitstop = 0; this.roundSeq++;
+    this.winner = -1; this.hitstop = 0; this.roundSeq++; this.cine = null;
     for (const s of this.ins) s.buf.length = 0;
     this.emit({ t: 'round', round: this.round });
   }
@@ -45,6 +50,8 @@ export class Sim {
     if (!fi) return;
     if (fi.gp) st.guardPressed = true;
     if (fi.roll) st.rollPressed = this.frame;
+    if (fi.ougi) st.ougiPressed = this.frame;
+    if (fi.score !== undefined && fi.score !== null && fi.score >= 0) st.score = Math.max(0, Math.min(100, Math.round(fi.score)));
     st.mx = fi.mx || 0; st.my = fi.my || 0; st.guard = !!fi.guard;
     if (live && fi.btns) for (const p of fi.btns) { st.buf.push({ b: p.b, dir: p.dir, a: p.a || 0, t: this.frame }); if (st.buf.length > 4) st.buf.shift(); }
   }
@@ -57,6 +64,7 @@ export class Sim {
     this.ingest(this.ins[1], inputs[1], live);
     if (!live) { this.ins[0].buf.length = 0; this.ins[1].buf.length = 0; }
     if (this.hitstop > 0) { this.hitstop--; return false; }
+    if (this.cine) { this.stepCine(); return true; }
     const [A, B] = this.f;
     if (this.phase === 'over') { A.update(EMPTY(), B); B.update(EMPTY(), A); this.sep(); return true; }
     const i0 = live ? this.ins[0] : EMPTY(), i1 = live ? this.ins[1] : EMPTY();
@@ -70,6 +78,68 @@ export class Sim {
     this.sep();
     this.rounds();
     return true;
+  }
+
+  // ---------- 오의 시네마틱 ----------
+  startCine(A, D) {
+    this.cine = { a: A.idx, d: D.idx, f: 0, score: -1, strikeF: -1 };
+    this.ins[A.idx].score = -1;
+    A.state = 'ougiCast'; A.f = 0; A.vx = A.vz = 0;
+    D.state = 'ougiHeld'; D.f = 0; D.vx = D.vz = 0; D.guard = false; D.crouch = false; D.move = null; D.y = 0; D.vy = 0;
+    // 서로 마주보게
+    const dx = D.x - A.x, dz = D.z - A.z;
+    A.yaw = Math.atan2(dx, dz); D.yaw = Math.atan2(-dx, -dz);
+    this.emit({ t: 'ougiStart', a: A.idx, d: D.idx });
+  }
+  stepCine() {
+    const c = this.cine, A = this.f[c.a], D = this.f[c.d];
+    c.f++; A.f++; D.f++;
+    if (c.strikeF < 0) {
+      const sc = this.ins[c.a].score;
+      if (sc >= 0 || c.f >= OUGI.draw) {
+        c.score = sc >= 0 ? sc : OUGI.autoScore;
+        c.strikeF = c.f; A.state = 'ougiStrike'; A.f = 0;
+        this.emit({ t: 'ougiStrike', a: c.a, d: c.d, score: c.score });
+      }
+      return;
+    }
+    if (c.f - c.strikeF >= OUGI.strike) {
+      const dmg = OUGI.dmgMin + (OUGI.dmgMax - OUGI.dmgMin) * (c.score / 100);
+      D.hp = Math.max(0, D.hp - dmg);
+      let nx = D.x - A.x, nz = D.z - A.z; const l = Math.hypot(nx, nz) || 1; nx /= l; nz /= l;
+      D.state = 'launched'; D.f = 0; D.y = 0.02; D.vy = 6.5; D.juggle = 3; D.vx = nx * 4.5; D.vz = nz * 4.5; D.launchUid = ++this.uid;
+      A.state = 'ougiEnd'; A.f = 0;
+      this.cine = null;
+      this.hitstop = 14;
+      this.emit({ t: 'ougiHit', a: c.a, d: c.d, score: c.score, dmg, ko: D.hp <= 0 });
+    }
+  }
+
+  // ---------- 상태 저장/복원 (온라인 동기화·리플레이용) ----------
+  serialize() {
+    const f = this.f.map((F) => {
+      const o = {};
+      for (const k in F) if (k !== 'sim') o[k] = k === 'move' ? (F.move ? F.move.id : null) : F[k];
+      return o;
+    });
+    return JSON.parse(JSON.stringify({
+      frame: this.frame, uid: this.uid, hitstop: this.hitstop, round: this.round, wins: this.wins, timer: this.timer,
+      phase: this.phase, phaseT: this.phaseT, winner: this.winner, roundSeq: this.roundSeq, rng: this.rng.getState(),
+      cine: this.cine || null, ins: this.ins, f,
+    }));
+  }
+  load(s) {
+    for (const k of ['frame', 'uid', 'hitstop', 'round', 'timer', 'phase', 'phaseT', 'winner', 'roundSeq']) this[k] = s[k];
+    this.wins = s.wins.slice(); this.rng.setState(s.rng); this.cine = s.cine ? { ...s.cine } : null;
+    this.ins = JSON.parse(JSON.stringify(s.ins));
+    s.f.forEach((o, i) => { const F = this.f[i]; Object.assign(F, JSON.parse(JSON.stringify(o))); F.move = o.move ? MV[o.move] : null; F.sim = this; });
+  }
+  // 상태 지문 (두 기기가 같은 상태인지 비교)
+  hash() {
+    const str = JSON.stringify(this.serialize());
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
   }
 
   rounds() {

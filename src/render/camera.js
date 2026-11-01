@@ -10,7 +10,7 @@ export class LockOnCamera {
     this.eye = new THREE.Vector3();
   }
   // P = 내 파이터, E = 상대, pRootH = 내 애니메이터 rootH, orbit = 데모/결과 화면 회전
-  update(dt, t, P, E, pRootH, aspectPortrait, orbit) {
+  update(dt, t, P, E, pRootH, aspectPortrait, orbit, sim) {
     let eye, look;
     const port = aspectPortrait;
     this.cam.fov = (port ? 72 : 54) - this.punch;
@@ -31,7 +31,15 @@ export class LockOnCamera {
     if (this.cine && !orbit) {
       this.cine.t -= dt;
       if (this.cine.t <= 0) this.cine = null;
-      else {
+      else if (this.cine.mode === 'cast' && sim) {
+        // 오의 시전: 시전자 앞쪽에서 얼굴과 칼을 크게
+        const A = sim.f[this.cine.a], fx = Math.sin(A.yaw), fz = Math.cos(A.yaw), rx = Math.cos(A.yaw), rz = -Math.sin(A.yaw);
+        eye = [A.x + fx * 3.2 + rx * 1.3, 1.7, A.z + fz * 3.2 + rz * 1.3]; look = [A.x, 1.05, A.z];
+      } else if (this.cine.mode === 'strike' && sim) {
+        // 오의 발동: 두 사람을 옆에서 넓게
+        const A = sim.f[this.cine.a], D = sim.f[1 - this.cine.a], mx = (A.x + D.x) / 2, mz = (A.z + D.z) / 2, dx = D.x - A.x, dz = D.z - A.z, d = Math.hypot(dx, dz) || 1;
+        eye = [mx - (dz / d) * 4.0, 1.6, mz + (dx / d) * 4.0]; look = [mx, 1.1, mz];
+      } else {
         const mx = (P.x + E.x) / 2, mz = (P.z + E.z) / 2, dx = E.x - P.x, dz = E.z - P.z, d = Math.hypot(dx, dz) || 1;
         const s = this.cine.side, px = (-dz / d) * s, pz = (dx / d) * s;
         eye = [mx + px * 3.0 - (dx / d) * 0.8, 1.25, mz + pz * 3.0 - (dz / d) * 0.8]; look = [mx, 0.95, mz];
