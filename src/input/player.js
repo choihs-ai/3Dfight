@@ -112,9 +112,10 @@ export class PlayerInput {
       st.fired = true;
       const ang = Math.atan2(-dy, dx), deg = (ang * 180) / Math.PI;
       let g;
-      if (Math.abs(deg) <= 35 || Math.abs(deg) >= 145) g = 'h';
+      // 엄지로 그으면 살짝 비스듬해지므로 아래 판정을 넓게: 수직 ±35° = 내려치기, 그 바깥 사선 = 하단베기
+      if (Math.abs(deg) <= 28 || Math.abs(deg) >= 152) g = 'h';
       else if (deg > 0) g = 'u';
-      else g = deg <= -65 && deg >= -115 ? 'd' : 'l';
+      else g = deg <= -55 && deg >= -125 ? 'd' : 'l';
       this.pressAtk(g, ang);
       fx('stroke', st.x, st.y, Math.max(len, el.clientWidth * 0.45), ang);
     });
