@@ -5,7 +5,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { DT, lerp, turnTo } from '../core/util.js';
 import { GB } from './geom.js';
-import { STYLES, moveCut, moveClipTime, BLADE_DIR_BY_CLIP } from '../anim/clipMap.js';
+import { STYLES, moveCut, moveClipTime, swipeSide, BLADE_DIR_BY_CLIP } from '../anim/clipMap.js';
 
 let MODEL = null;
 export function loadSwordsman(url) {
@@ -240,7 +240,7 @@ export class SwordsmanRig {
         }
         return { key: 'loco', L, fade: 6 };
       }
-      case 'attack': { const c = moveCut(this.ch.id, F.move.id, F.moveUid); return { key: 'atk' + F.moveUid, L: [[c.clip, moveClipTime(c, F.move, f), 1]], fade: F.chainN > 0 ? 6 : 3 }; }
+      case 'attack': { const c = moveCut(this.ch.id, F.move.id, F.moveUid, swipeSide(F.swipeAng)); return { key: 'atk' + F.moveUid, L: [[c.clip, moveClipTime(c, F.move, f), 1]], fade: F.chainN > 0 ? 6 : 3 }; }
       case 'hitstun': {
         const n = F.hitLevel === 'high' ? 'hit_head' : F.hitLevel === 'low' ? 'hit_low' : 'hit_body';
         return { key: 'hit', L: [[n, Math.min(1, f / Math.max(1, F.stun)) * this.dur(n) * 0.7, 1]], fade: 2 };

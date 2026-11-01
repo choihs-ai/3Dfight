@@ -30,7 +30,7 @@ export class AI {
     const me = this.me, op = this.op, L = this.L, R = this.sim.rng;
     const out = { mx: 0, my: 0, guard: false, gp: false, roll: false, btns: [] };
     if (L.idle) return out;
-    const press = (b, d) => out.btns.push({ b, dir: d });
+    const press = (b, d) => out.btns.push({ b, dir: d, a: b === 'h' && R() < 0.5 ? 3.14 : 0 }); // 가로 긋기는 좌우 무작위
     const dist = Math.hypot(op.x - me.x, op.z - me.z);
     while (this.queue.length && this.queue[0].t <= now) { const q = this.queue.shift(); press(q.b, q.d); }
     let mx = 0, my = 0, wantG = false, wantC = false;

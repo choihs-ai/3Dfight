@@ -57,12 +57,12 @@ export class PlayerInput {
     };
     jz.addEventListener('pointerup', joyEnd); jz.addEventListener('pointercancel', joyEnd);
 
-    const KMAP = { u: 't', i: 'h', o: 'u', k: 'd', j: 'l' };
+    const KMAP = { u: ['t', 0], i: ['h', 0], y: ['h', Math.PI], o: ['u', 0], k: ['d', 0], j: ['l', 0] };
     addEventListener('keydown', (e) => {
       const k = e.key.toLowerCase();
       if (this.keys[k]) return;
       this.keys[k] = true;
-      if (KMAP[k]) this.pressAtk(KMAP[k]);
+      if (KMAP[k]) this.pressAtk(KMAP[k][0], KMAP[k][1]);
       if (k === ' ') { this.roll = true; e.preventDefault(); }
       if (k === 'l' || k === 'shift') this.setGuard(true);
       if (k === 'escape' && this.onEscape) this.onEscape();
