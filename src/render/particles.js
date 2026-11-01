@@ -94,8 +94,8 @@ export class Particles {
       E(x, y, z, 0, 0, 0, 0.14, 1.4 * n, 2.4 * n, 0.3, 0.7, 1, 1);
       for (let i = 0; i < 26 * n; i++) { const a = (i / 26) * Math.PI * 2, s = rnd(3, 6); E(x, y, z, Math.cos(a) * s, rnd(1, 4), Math.sin(a) * s, rnd(0.35, 0.7), rnd(0.08, 0.16), 0.03, 0.45, 0.8, 1, 1, -12, 0.95); }
     } else if (el === 'thunder') {
-      E(x, y, z, 0, 0, 0, 0.08, 2.0 * n, 2.6 * n, 1, 1, 0.7, 1);
-      for (let i = 0; i < 24 * n; i++) { const d = rdir(), s = rnd(8, 16); E(x, y, z, d[0] * s, d[1] * s, d[2] * s, rnd(0.06, 0.16), rnd(0.06, 0.1), 0.02, 1, 0.95, 0.4, 1, 0, 0.8); }
+      E(x, y, z, 0, 0, 0, 0.08, 2.0 * n, 2.6 * n, 0.7, 0.9, 1, 1);
+      for (let i = 0; i < 24 * n; i++) { const d = rdir(), s = rnd(8, 16); E(x, y, z, d[0] * s, d[1] * s, d[2] * s, rnd(0.06, 0.16), rnd(0.06, 0.1), 0.02, 0.75, 0.92, 1, 1, 0, 0.8); }
     } else if (el === 'wind') {
       E(x, y, z, 0, 0, 0, 0.14, 1.4 * n, 2.4 * n, 0.5, 1, 0.7, 1);
       for (let i = 0; i < 24 * n; i++) { const a = rnd(0, Math.PI * 2), r = rnd(0.2, 0.5), s = rnd(3, 6); E(x + Math.cos(a) * r, y, z + Math.sin(a) * r, -Math.sin(a) * s, rnd(0.5, 2.5), Math.cos(a) * s, rnd(0.4, 0.8), rnd(0.1, 0.2), 0.03, 0.55, 1, 0.75, 0.9, 0, 0.93); }
@@ -106,7 +106,7 @@ export class Particles {
     const [x, y, z] = p, E = this.emit.bind(this);
     if (el === 'fire') { for (let i = 0; i < 3; i++) E(x + rnd(-0.05, 0.05), y, z + rnd(-0.05, 0.05), rnd(-0.4, 0.4), rnd(0.6, 1.6), rnd(-0.4, 0.4), rnd(0.25, 0.5), rnd(0.25, 0.4), 0.05, 1, rnd(0.35, 0.6), 0.1, 0.8, 1.5, 0.95); }
     else if (el === 'water') { for (let i = 0; i < 3; i++) E(x, y, z, rnd(-1, 1), rnd(-0.5, 1), rnd(-1, 1), rnd(0.3, 0.6), rnd(0.07, 0.12), 0.03, 0.5, 0.82, 1, 1, -9, 0.97); }
-    else if (el === 'thunder') { for (let i = 0; i < 2; i++) { const d = rdir(); E(x, y, z, d[0] * 6, d[1] * 6, d[2] * 6, rnd(0.04, 0.1), 0.08, 0.02, 1, 0.95, 0.5, 1, 0, 0.8); } }
+    else if (el === 'thunder') { for (let i = 0; i < 2; i++) { const d = rdir(); E(x, y, z, d[0] * 6, d[1] * 6, d[2] * 6, rnd(0.04, 0.1), 0.08, 0.02, 0.7, 0.9, 1, 1, 0, 0.8); } }
     else if (el === 'wind') { for (let i = 0; i < 2; i++) E(x, y, z, rnd(-1.2, 1.2), rnd(0, 1), rnd(-1.2, 1.2), rnd(0.35, 0.6), rnd(0.12, 0.22), 0.03, 0.6, 1, 0.8, 0.6, 0, 0.94); }
   }
   // 경기장에 떠다니는 불씨

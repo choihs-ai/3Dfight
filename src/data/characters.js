@@ -19,7 +19,7 @@ export const CHARACTERS = [
     id: 'thunder', element: '번개', icon: '⚡', name: '라이카', style: '뇌명류',
     desc: '번개처럼 한순간에 꿰뚫는 일섬',
     colors: { gi: '#d29a17', pants: '#2b2414', belt: '#f5f0dc', skin: '#efc59a', hair: '#f2d24a', accent: '#fff07a', glove: '#3a3016', wrap: '#f0e8cc', dark: '#0a0a10', tsuka: '#2a2210', tsuba: '#e7d36a', blade: '#f3efe0' },
-    trail: [[1, 0.8, 0.1], [1, 1, 0.75]], rim: [0.8, 0.65, 0.15], glow: [0.35, 0.28, 0.02],
+    trail: [[0.25, 0.65, 1], [0.8, 0.95, 1]], rim: [0.8, 0.65, 0.15], glow: [0.15, 0.3, 0.45],
     ougi: { name: '섬광뇌절', hanja: '閃光雷絶', shape: 'thunder' },
   },
   {
