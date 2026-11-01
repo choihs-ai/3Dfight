@@ -171,6 +171,7 @@ export class Game {
           if (pl) {
             hud.hitBar(e.d, big);
             if (e.counter) { hud.call(hud.side(e.a), '카운터!', 'red'); hud.impact(); }
+            if (big) hud.speedLines();
             if (e.launch) hud.call(hud.side(e.a), '띄우기!', 'gold');
             if (e.combo >= 2) hud.call(hud.side(e.a), e.combo + ' 히트', 'combo' + (e.combo >= 4 ? ' big' : ''));
             if (e.a === this.me) { this.stats.hits++; this.stats.maxCombo = Math.max(this.stats.maxCombo, e.combo); }
@@ -238,6 +239,7 @@ export class Game {
           setTimeout(() => this.ougiUI.hide(), 600);
           cam.cine = { t: 99, mode: 'strike', a: e.a };
           this.ougiStrikeFx(e.a, e.d, e.score);
+          if (pl) { hud.speedLines(); setTimeout(() => hud.speedLines(), 450); }
           this.ougiTime = this.t;
           break;
         }
@@ -247,7 +249,7 @@ export class Game {
           { const A = this.sim.f[e.a], D = this.sim.f[e.d]; v.elfx.ougiBurst(el, [A.x, 0, A.z], [D.x, 0, D.z]); }
           FX.ring(hp, col, 2.4); FX.ring([hp[0], 0, hp[2]], col, 2.2, true);
           for (let k = 0; k < 2; k++) FX.stroke(hp, Math.random() * Math.PI, col, 1.7 + k * 0.4, 0.9);
-          shake(0.35, e.a, e.d); cam.punch = 10; hud.impact(); Sound.play('ko'); Sound.play('el_' + el);
+          shake(0.35, e.a, e.d); cam.punch = 10; hud.impact(); if (pl) hud.speedLines(); Sound.play('ko'); Sound.play('el_' + el);
           v.hitFlash(e.d, 8, [1, 1, 1]); v.fx[e.d].lagDelay = 60;
           this.slow = Math.max(this.slow, 0.8);
           cam.cine = { t: 1.4, side: Math.random() < 0.5 ? 1 : -1 };

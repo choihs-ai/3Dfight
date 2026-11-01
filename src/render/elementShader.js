@@ -22,12 +22,17 @@ void main(){
     // 불: 칼끝 궤적을 따라 가는 흰 심(vU≈.86) + 주황·빨강 불꽃 혀가 안쪽·뒤로 갈라짐 (3단 셀 셰이딩)
     float n=fbm(vec2(vT*6.+uSeed-uTime*1.2,vU*2.2-uTime*2.5));
     float dc=abs(vU-.86);
+    // 소용돌이: 꼬리 쪽 불꽃이 말려 올라감
+    vec2 q=vec2(vT*6.,vU*2.2); float ang=sin(vT*9.+uTime*3.)*.9*vT; q=vec2(q.x*cos(ang)-q.y*sin(ang),q.x*sin(ang)+q.y*cos(ang));
+    n=fbm(q+vec2(uSeed-uTime*1.2,-uTime*2.5));
     float flame=n*1.05+.62-dc*2.4-vT*.75+head*.1;
     flame*=thick*.6+.4;
-    a=step(.55,flame);
+    a=step(.5,flame);
+    float rim=1.-step(.55,flame);                 // 바깥 테두리(어두운 빨강)
     float mid=step(.72,flame), core=step(.9,flame)*step(dc,.09);
     c=mix(vec3(.8,.1,.02),vec3(1.,.48,.04),mid);
     c=mix(c,vec3(1.,.96,.78),core);
+    c=mix(c,vec3(.35,.02,.0),rim);
   } else if(uMode==1){
     // 물: 칼끝 쪽 파랑 물살 + 바깥 가장자리에 봉우리처럼 솟는 흰 물마루(우키요에)
     float band=vU;
@@ -44,7 +49,12 @@ void main(){
     vec3 deep=vec3(.02,.14,.48), lite=vec3(.12,.45,.95);
     c=mix(deep,lite,smoothstep(inner,top,band));
     c=mix(c,vec3(.7,.88,1.),stripe*.7);
+    // 우키요에 먹선: 안쪽 테두리 + 물결 결을 따라 흐르는 진한 남색 선
+    float ink=step(band,inner+.035)+step(.9,fract(band*3.-vT*2.5+uTime*.8+fbm(vec2(vT*2.,band*2.))*.7))*.8;
+    c=mix(c,vec3(.0,.04,.18),clamp(ink,0.,1.)*body*(1.-crest));
     c=mix(c,vec3(1.),max(crest,curl));
+    // 물마루 바깥 먹선
+    float cl=step(top-.075-.05*pk,band)*step(band,top-.055-.05*pk)*body; c=mix(c,vec3(.0,.06,.25),cl*.9);
     a=max(body,curl)*smoothstep(0.,.06,head);
   } else if(uMode==2){
     // 번개: 칼끝 쪽을 따라가는 밝은 줄기 + 바깥으로 갈라지는 잔가지 (깜빡이며 다시 그려짐)
@@ -87,4 +97,18 @@ export function elementMaterial(el, seed = Math.random() * 10) {
   });
   if (mode !== 1) { m.blending = THREE.CustomBlending; m.blendSrc = THREE.OneFactor; m.blendDst = THREE.OneFactor; }
   return m;
+}
+
+// 합성 빛 번짐: 칼끝 궤적을 따라 부드럽게 빛나는 띠 (셀 셰이딩 이펙트 아래에 깔림)
+const GLOW_FS = `uniform float uTime;uniform float uAlpha;uniform float uReveal;uniform vec3 uCol;varying float vU;varying float vT;
+void main(){ if(vT>uReveal) discard; float head=1.-vT; float taper=smoothstep(0.,.2,vT)*smoothstep(1.,.5,vT);
+  float g=exp(-pow((vU-.82)*3.2,2.))*mix(.3,1.,taper)*(.25+.75*head);
+  gl_FragColor=vec4(uCol*g*uAlpha*.55,1.);}`;
+const GLOW_COL = { fire: [1, 0.45, 0.1], water: [0.12, 0.32, 0.6], thunder: [0.45, 0.38, 0.12], wind: [0.25, 0.55, 0.4] }; // 원소별 빛 번짐 세기 포함
+export function glowMaterial(el) {
+  return new THREE.ShaderMaterial({
+    vertexShader: VS, fragmentShader: GLOW_FS,
+    uniforms: { uTime: { value: 0 }, uAlpha: { value: 1 }, uReveal: { value: 1 }, uCol: { value: new THREE.Color(...(GLOW_COL[el] || [1, 1, 1])) } },
+    transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
+  });
 }

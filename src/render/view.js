@@ -116,6 +116,7 @@ export class View {
       const swing = !!m && F.f >= m.startup - 3 && F.f <= m.startup + m.active + 2;
       fx.trail.push(swing, fx.anim);
       if (swing) this.particles.elementSwing(fx.anim.bladePoint(1), fx.ch.id);
+      if (fx.ch.id === 'thunder' && (swing || F.state === 'ougi' || F.state === 'ougiCast' || F.state === 'ougiStrike') && Math.random() < 0.35) this.elfx.crackle(fx.anim.center());
       // 오의 기 모으기·발동 중: 몸과 칼에서 원소가 피어오름
       if (F.state === 'ougiCast' || F.state === 'ougiStrike' || (F.state === 'ougi' && F.f < 22)) {
         const c = fx.anim.center();

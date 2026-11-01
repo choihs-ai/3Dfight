@@ -34,6 +34,8 @@ export class Hud {
     el.style.opacity = '1';
     requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => { el.style.opacity = '0'; })));
   }
+  // 집중선
+  speedLines() { const el = document.querySelector('#speedlines'); el.classList.remove('on'); void el.offsetWidth; el.classList.add('on'); }
   // 맞은 쪽 체력바 흔들기
   hitBar(i, big) {
     const b = this.hpb[this.side(i)];

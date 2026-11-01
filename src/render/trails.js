@@ -1,6 +1,6 @@
 // 칼 궤적 리본 — 칼날(손잡이 쪽 ~ 칼끝) 위치를 프레임마다 기록해서 원소 색 띠로 그림
 import * as THREE from 'three';
-import { elementMaterial } from './elementShader.js';
+import { elementMaterial, glowMaterial } from './elementShader.js';
 
 const N = 11;     // 기록하는 로직 프레임 수
 const SUB = 4;    // 프레임 사이 곡선 보간 개수
@@ -42,8 +42,11 @@ export class SwordTrail {
     this.mat = elementMaterial(ch.id);
     this.mesh = new THREE.Mesh(g, this.mat);
     this.mesh.frustumCulled = false; this.mesh.renderOrder = 9;
+    // 빛 번짐 레이어 (같은 띠, 먼저 그림)
+    this.glowMat = glowMaterial(ch.id);
+    this.glow = new THREE.Mesh(g, this.glowMat); this.glow.frustumCulled = false; this.glow.renderOrder = 8;
     this.scene = scene;
-    scene.add(this.mesh);
+    scene.add(this.glow, this.mesh);
     this.jitter = 0; this.wind = ch.id === 'wind';
   }
   // 로직 1프레임마다: active면 현재 칼 위치 기록, 아니면 빈칸으로 서서히 사라짐
@@ -54,7 +57,7 @@ export class SwordTrail {
   }
   clear() { this.samples.length = 0; }
   update(time = 0) {
-    this.mat.uniforms.uTime.value = time;
+    this.mat.uniforms.uTime.value = time; this.glowMat.uniforms.uTime.value = time;
     const S = this.samples;
     let v = 0;
     const tmpB = [0, 0, 0], tmpT = [0, 0, 0];
@@ -77,7 +80,7 @@ export class SwordTrail {
     this.geo.attributes.position.needsUpdate = true;
     this.geo.attributes.aCol.needsUpdate = true;
     this.geo.attributes.aT.needsUpdate = true;
-    this.mesh.visible = v >= 2;
+    this.mesh.visible = v >= 2; this.glow.visible = v >= 2;
   }
   writeV(v, b, t, age) {
     const a = Math.pow(1 - age, 1.6), j = this.jitter;
@@ -89,5 +92,5 @@ export class SwordTrail {
     C[v * 8 + 3] = a; C[v * 8 + 7] = a;
     this.tt[v * 2] = age; this.tt[v * 2 + 1] = age;
   }
-  dispose() { this.scene.remove(this.mesh); this.geo.dispose(); this.mat.dispose(); }
+  dispose() { this.scene.remove(this.mesh, this.glow); this.geo.dispose(); this.mat.dispose(); this.glowMat.dispose(); }
 }

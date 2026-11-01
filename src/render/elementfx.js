@@ -73,7 +73,7 @@ function bolt(from, to, n = 14, jag = 0.18) {
 }
 
 export class ElementFx {
-  constructor(scene) { this.pool = Array.from({ length: 20 }, () => new Ribbon(scene)); this.i = 0; }
+  constructor(scene) { this.pool = Array.from({ length: 26 }, () => new Ribbon(scene)); this.i = 0; }
   next() { return this.pool[this.i++ % this.pool.length]; }
   // 타격 이펙트: p 위치, dir 공격 방향(수평 단위벡터), power
   hit(el, p, dir, power = 8) {
@@ -129,6 +129,12 @@ export class ElementFx {
         this.next().start('wind', pts, { width: 0.45, life: 0.9, reveal: 0.35, delay: k * 0.08 });
       }
     }
+  }
+  // 몸 주위 작은 전기 (번개 캐릭터)
+  crackle(c) {
+    const a = [c[0] + (Math.random() - 0.5) * 0.5, c[1] + (Math.random() - 0.5) * 0.9, c[2] + (Math.random() - 0.5) * 0.5];
+    const b = [a[0] + (Math.random() - 0.5) * 0.6, a[1] + (Math.random() - 0.5) * 0.6, a[2] + (Math.random() - 0.5) * 0.6];
+    this.next().start('thunder', bolt(a, b, 6, 0.1), { width: 0.18, life: 0.09, reveal: 0.01 });
   }
   update(dt, time, camera) { for (const r of this.pool) r.update(dt, time, camera); }
 }
