@@ -35,6 +35,7 @@ export class Game {
   newSim(mode) {
     const seed = (Math.random() * 2 ** 31) | 0;
     this.sim = new Sim({ mode, seed });
+    this.sim.setStyles(this.chars.map((c) => c.id));
     this.handle(this.sim.drainEvents());
   }
   startDemo() {
@@ -68,6 +69,7 @@ export class Game {
     this.input.clear();
     this.net = transport; this.chars = chars; this.applyChars();
     this.sim = new Sim({ mode: 'online', seed });
+    this.sim.setStyles(chars.map((c) => c.id));
     this.handle(this.sim.drainEvents());
     this.ctrl = [null, null];
     this.ls = new Lockstep({ me, delay, send: (m) => transport.send(m) });
@@ -157,8 +159,9 @@ export class Game {
           v.hitFlash(e.d, 5, e.counter ? [1, 0.35, 0.2] : [1, 1, 1]); v.fx[e.d].lagDelay = 40;
           P.sparks(hp, e.counter ? 'counter' : 'hit', e.dmg);
           P.elementBurst(hp, el, e.dmg + (e.counter ? 4 : 0));
-          // 붓터치 베기 자국 + 충격파
-          FX.stroke(hp, v.strokeAngle(e.a), elCol(e.a), 1.0 + e.dmg * 0.06 + (e.counter ? 0.5 : 0), big ? 1.2 : 0.8);
+          // 원소 이펙트(불꽃 바퀴/물살/번개/회오리) + 붓터치 베기 자국 + 충격파
+          { const A = this.sim.f[e.a], D = this.sim.f[e.d], dx = D.x - A.x, dz = D.z - A.z, l = Math.hypot(dx, dz) || 1; v.elfx.hit(el, hp, [dx / l, 0, dz / l], e.dmg + (e.counter ? 4 : 0)); }
+          FX.stroke(hp, v.strokeAngle(e.a), elCol(e.a), 0.9 + e.dmg * 0.04 + (e.counter ? 0.4 : 0), big ? 0.9 : 0.6);
           FX.ring(hp, elCol(e.a), big ? 1.5 : 1.0);
           if (e.move === 'slash_down' || e.move === 'helm' || e.move === 'sweep' || e.ko) FX.ring([this.sim.f[e.d].x, 0, this.sim.f[e.d].z], elCol(e.a), 1.3, true);
           shake(big ? 0.2 : 0.09, e.a, e.d);
@@ -235,11 +238,13 @@ export class Game {
           setTimeout(() => this.ougiUI.hide(), 600);
           cam.cine = { t: 99, mode: 'strike', a: e.a };
           this.ougiStrikeFx(e.a, e.d, e.score);
+          this.ougiTime = this.t;
           break;
         }
         case 'ougiHit': {
           const hp = v.center(e.d), el = v.fx[e.a].ch.id, col = elCol(e.a);
           P.elementBurst(hp, el, 20); P.sparks(hp, 'counter', 14);
+          { const A = this.sim.f[e.a], D = this.sim.f[e.d]; v.elfx.ougiBurst(el, [A.x, 0, A.z], [D.x, 0, D.z]); }
           FX.ring(hp, col, 2.4); FX.ring([hp[0], 0, hp[2]], col, 2.2, true);
           for (let k = 0; k < 2; k++) FX.stroke(hp, Math.random() * Math.PI, col, 1.7 + k * 0.4, 0.9);
           shake(0.35, e.a, e.d); cam.punch = 10; hud.impact(); Sound.play('ko'); Sound.play('el_' + el);
@@ -252,18 +257,17 @@ export class Game {
       }
     }
   }
-  // 오의 연출: 시전자 주변에 문양 모양으로 붓 획이 연달아 그어짐
+  // 오의 연출: 그린 문양이 그 원소(불꽃 바퀴·물줄기·번개·회오리)로 상대 앞 공간에 나타남
   ougiStrikeFx(a, d, score) {
-    const v = this.view, FX = v.hitfx, ch = v.fx[a].ch, col = ch.trail[1], S = SHAPES[ch.ougi.shape].res;
-    const D = this.sim.f[d], A = this.sim.f[a];
-    const n = 7, cx = (A.x + D.x) / 2, cz = (A.z + D.z) / 2;
-    const rx = Math.cos(A.yaw), rz = -Math.sin(A.yaw); // 시전자 기준 오른쪽
-    for (let k = 0; k < n; k++) {
-      const i = Math.floor((k / n) * (S.length - 2)), p = S[i], q = S[i + 1];
-      const pos = [cx + rx * p[0] * 1.3, 1.2 - p[1] * 1.0, cz + rz * p[0] * 1.3];
-      const ang = Math.atan2(-(q[1] - p[1]), q[0] - p[0]);
-      setTimeout(() => { FX.stroke(pos, ang, col, 1.2 + score / 120, 0.9); v.particles.elementBurst(pos, ch.id, 9); Sound.play('whoosh', { power: 13 }); }, 60 + k * 90);
-    }
+    const v = this.view, ch = v.fx[a].ch, S = SHAPES[ch.ougi.shape].res;
+    const D = this.sim.f[d], cam = v.camera.cam.matrixWorld.elements;
+    const right = [cam[0], cam[1], cam[2]], up = [cam[4], cam[5], cam[6]];
+    const delay = { fire: 380, water: 120, thunder: 260, wind: 150 }[ch.id] || 200; // 원소별 오의 동작에서 칼이 닿는 즈음
+    setTimeout(() => {
+      v.elfx.ougiShape(ch.id, [D.x, 1.15, D.z], right, up, S, 1.15 + score / 250);
+      v.particles.elementBurst([D.x, 1.1, D.z], ch.id, 18);
+      Sound.play('el_' + ch.id); Sound.play('whoosh', { power: 14 });
+    }, delay);
   }
   // requestAnimationFrame 마다
   frame(dt) {

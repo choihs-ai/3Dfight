@@ -1,7 +1,8 @@
 // 칼 궤적 리본 — 칼날(손잡이 쪽 ~ 칼끝) 위치를 프레임마다 기록해서 원소 색 띠로 그림
 import * as THREE from 'three';
+import { elementMaterial } from './elementShader.js';
 
-const N = 9;      // 기록하는 로직 프레임 수
+const N = 11;     // 기록하는 로직 프레임 수
 const SUB = 4;    // 프레임 사이 곡선 보간 개수
 const MAXV = (N - 1) * SUB + 1;
 
@@ -27,33 +28,32 @@ export class SwordTrail {
     this.pos = new Float32Array(MAXV * 2 * 3);
     this.col = new Float32Array(MAXV * 2 * 4);
     this.u = new Float32Array(MAXV * 2);
+    this.tt = new Float32Array(MAXV * 2);
     const idx = [];
     for (let i = 0; i < MAXV - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
     g.setIndex(idx);
     g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
     g.setAttribute('aCol', new THREE.BufferAttribute(this.col, 4).setUsage(THREE.DynamicDrawUsage));
     g.setAttribute('aU', new THREE.BufferAttribute(this.u, 1));
+    g.setAttribute('aT', new THREE.BufferAttribute(this.tt, 1).setUsage(THREE.DynamicDrawUsage));
     for (let i = 0; i < MAXV; i++) { this.u[i * 2] = 0; this.u[i * 2 + 1] = 1; }
     this.geo = g;
-    this.mat = new THREE.ShaderMaterial({
-      vertexShader: VS, fragmentShader: FS,
-      uniforms: { uCore: { value: new THREE.Vector3(...ch.trail[1]) }, uEdge: { value: new THREE.Vector3(...ch.trail[0]) } },
-      transparent: true, depthWrite: false, side: THREE.DoubleSide,
-      blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
-    });
+    // 원소 셰이더 (불꽃/물결/번개/바람)
+    this.mat = elementMaterial(ch.id);
     this.mesh = new THREE.Mesh(g, this.mat);
     this.mesh.frustumCulled = false; this.mesh.renderOrder = 9;
     this.scene = scene;
     scene.add(this.mesh);
-    this.jitter = ch.id === 'thunder' ? 0.05 : 0;
+    this.jitter = 0;
   }
   // 로직 1프레임마다: active면 현재 칼 위치 기록, 아니면 빈칸으로 서서히 사라짐
   push(active, anim) {
-    this.samples.unshift(active ? { b: anim.bladePoint(0.05), t: anim.bladePoint(1.05) } : null);
+    this.samples.unshift(active ? { b: anim.bladePoint(-0.05), t: anim.bladePoint(1.3) } : null);
     if (this.samples.length > N) this.samples.length = N;
   }
   clear() { this.samples.length = 0; }
-  update() {
+  update(time = 0) {
+    this.mat.uniforms.uTime.value = time;
     const S = this.samples;
     let v = 0;
     const tmpB = [0, 0, 0], tmpT = [0, 0, 0];
@@ -75,6 +75,7 @@ export class SwordTrail {
     this.geo.setDrawRange(0, Math.max(0, (v - 1) * 6));
     this.geo.attributes.position.needsUpdate = true;
     this.geo.attributes.aCol.needsUpdate = true;
+    this.geo.attributes.aT.needsUpdate = true;
     this.mesh.visible = v >= 2;
   }
   writeV(v, b, t, age) {
@@ -85,6 +86,7 @@ export class SwordTrail {
       P[v * 6 + 3 + i] = t[i] + (j ? (Math.random() - 0.5) * j * 2 : 0);
     }
     C[v * 8 + 3] = a; C[v * 8 + 7] = a;
+    this.tt[v * 2] = age; this.tt[v * 2 + 1] = age;
   }
   dispose() { this.scene.remove(this.mesh); this.geo.dispose(); this.mat.dispose(); }
 }

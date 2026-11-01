@@ -9,6 +9,7 @@ import { addLights, FOGC, FOG } from './lighting.js';
 import { ProcAnimator } from '../anim/procedural.js';
 import { SwordTrail } from './trails.js';
 import { HitFx } from './hitfx.js';
+import { ElementFx } from './elementfx.js';
 import { CHARACTERS } from '../data/characters.js';
 import { SwordsmanRig, loadSwordsman, swordsmanReady } from './swordsman.js';
 
@@ -26,6 +27,7 @@ export class View {
     this.arena = buildArena(this.scene);
     this.particles = new Particles(this.scene);
     this.hitfx = new HitFx(this.scene);
+    this.elfx = new ElementFx(this.scene);
     this.camera = new LockOnCamera();
     this.fx = [0, 1].map((i) => ({ anim: new ProcAnimator(i), flash: 0, flashCol: [1, 1, 1], hpLag: MAXHP, lagDelay: 0 }));
     this.setCharacters([CHARACTERS[1], CHARACTERS[0]]);
@@ -114,6 +116,14 @@ export class View {
       const swing = !!m && F.f >= m.startup - 3 && F.f <= m.startup + m.active + 2;
       fx.trail.push(swing, fx.anim);
       if (swing) this.particles.elementSwing(fx.anim.bladePoint(1), fx.ch.id);
+      // 오의 기 모으기·발동 중: 몸과 칼에서 원소가 피어오름
+      if (F.state === 'ougiCast' || F.state === 'ougiStrike' || (F.state === 'ougi' && F.f < 22)) {
+        const c = fx.anim.center();
+        this.particles.elementSwing([c[0] + (Math.random() - 0.5) * 0.6, c[1] - 0.6 + Math.random() * 1.2, c[2] + (Math.random() - 0.5) * 0.6], fx.ch.id);
+        this.particles.elementSwing(fx.anim.bladePoint(Math.random()), fx.ch.id);
+      }
+      // 오의 발동 중에는 칼 궤적이 계속 그려짐
+      if (F.state === 'ougiStrike') fx.trail.samples[0] = { b: fx.anim.bladePoint(-0.05), t: fx.anim.bladePoint(1.3) };
     }
   }
   render(dt, t, sim, orbit) {
@@ -132,9 +142,10 @@ export class View {
       const root = fx.anim.root;
       this.shadows[i][0] = root[12]; this.shadows[i][1] = root[14]; this.shadows[i][2] = 0.62 - Math.min(0.25, F.y * 0.1);
     }
-    for (const f of this.fx) f.trail.update();
+    for (const f of this.fx) f.trail.update(t);
     const cam = this.camera.cam;
     this.hitfx.update(dt, cam);
+    this.elfx.update(dt, t, cam);
     this.arena.update(t, cam, this.camera.eye, this.shadows);
     const tanY = Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2);
     this.particles.upload(this.renderer.domElement.height / (2 * tanY));

@@ -260,14 +260,46 @@ export class SwordsmanRig {
       case 'ougi': return f < 22 ? { key: 'ougiDash', L: [['run', (f / 60) * 1.6 % this.dur('run'), 1]], fade: 3 } : { key: 'ougiMiss', L: [['hit_body', Math.min(1, (f - 22) / 46) * this.dur('hit_body') * 0.8, 1]], fade: 5 };
       case 'ougiCast': return { key: 'ougiCast', L: [['power_up', (f / 60) % this.dur('power_up'), 1]], fade: 8 };
       case 'ougiHeld': return { key: 'ougiHeld', L: [['hit_body', 0.3, 1]], fade: 6 };
-      case 'ougiStrike': {
-        const cut = { fire: ['spin', 0.0, 1.75], water: ['slash4', 0.25, 1.3], thunder: ['inward', 0.7, 1.7], wind: ['spin', 0.0, 1.75] }[this.ch.id] || ['spin', 0, 1.75];
-        return { key: 'ougiStrike', L: [[cut[0], cut[1] + (cut[2] - cut[1]) * Math.min(1, f / 54), 1]], fade: 4 };
-      }
+      case 'ougiStrike': return this.ougiMove(F, sim);
       case 'ougiEnd': return { key: 'ougiEnd', L: [[st.idle, this.loopT % this.dur(st.idle), 1]], fade: 10 };
       case 'win': return { key: 'win', L: [['withdraw', Math.min(this.dur('withdraw') - 0.01, f / 60), 1]], fade: 6, sheathed: f > 62 };
     }
     return { key: 'idle', L: [[st.idle, 0, 1]] };
+  }
+  // 원소별 오의 동작 (54프레임). 화면용 위치 이동(visOff)도 함께 — 실제 위치는 sim이 마지막에 맞춤
+  ougiMove(F, sim) {
+    const f = Math.min(54, F.f), u = f / 54, D = sim ? sim.f[1 - F.idx] : F;
+    const dx = D.x - F.x, dz = D.z - F.z, dist = Math.hypot(dx, dz) || 1, nx = dx / dist, nz = dz / dist;
+    const sm = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+    let L, off = [0, 0, 0];
+    switch (this.ch.id) {
+      case 'fire': { // 뛰어올라 불꽃 바퀴를 그리며 내려찍기
+        L = [['jump_attack', 0.2 + 1.45 * u, 1]];
+        const fw = sm(0.15, 0.7, u) * Math.max(0, dist - 1.1);
+        off = [nx * fw, Math.sin(Math.PI * sm(0.1, 0.75, u)) * 1.0, nz * fw];
+        break;
+      }
+      case 'water': { // 상대 주위를 흐르듯 돌며 세 번 베기
+        L = f < 18 ? [['slash4', 0.35 + (f / 18) * 0.6, 1]] : f < 36 ? [['slash3', 0.55 + ((f - 18) / 18) * 0.65, 1]] : [['spin', ((f - 36) / 18) * 0.9, 1]];
+        const ang = Math.sin(Math.PI * u) * 1.4, r = Math.min(dist, 1.4);
+        const ox = -nx * r, oz = -nz * r, c = Math.cos(ang), s2 = Math.sin(ang);
+        off = [D.x + ox * c - oz * s2 - F.x, 0, D.z + ox * s2 + oz * c - F.z];
+        break;
+      }
+      case 'thunder': { // 낮게 자세 → 번개처럼 꿰뚫고 지나감
+        if (f < 16) L = [['ss_slash5', 0.28, 1]];
+        else L = [['inward', 1.05 + Math.min(1, (f - 16) / 38) * 0.7, 1]];
+        const k = sm(16, 20, f), pass = dist + 1.6;
+        off = [nx * pass * k, 0, nz * pass * k];
+        break;
+      }
+      default: { // 바람: 회오리를 일으키며 솟구치는 연속 회전베기
+        L = [['spin', ((f / 27) % 1) * 1.75, 1]];
+        off = [0, Math.sin(Math.PI * u) * 0.9, 0];
+      }
+    }
+    this.visOff = off;
+    return { key: 'ougiStrike', L, fade: 4 };
   }
   step(F, _t, sim) {
     this.sim = sim;
@@ -301,7 +333,9 @@ export class SwordsmanRig {
   fk(F) {
     if (!this.cur) this.cur = this.target(F, this.sim);
     this.apply();
-    this.group.position.set(F.x, F.state === 'launched' ? F.y : 0, F.z);
+    const vo = F.state === 'ougiStrike' && this.visOff ? this.visOff : null;
+    if (!vo) this.visOff = null;
+    this.group.position.set(F.x + (vo ? vo[0] : 0), (F.state === 'launched' ? F.y : 0) + (vo ? vo[1] : 0), F.z + (vo ? vo[2] : 0));
     this.group.rotation.set(0, this.visYaw === undefined ? F.yaw : this.visYaw, 0);
     // 모션별 칼 쥐는 방향 (블렌드 가중치만큼 회전) + 납도 후 칼 숨김
     let adj = null, w = 0;

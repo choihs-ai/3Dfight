@@ -80,6 +80,9 @@ export class Sim {
     return true;
   }
 
+  // 캐릭터 원소 (오의 마무리 위치에만 영향 — 온라인에서는 양쪽이 같은 값을 씀)
+  setStyles(styles) { styles.forEach((st, i) => { this.f[i].style = st; }); }
+
   // ---------- 오의 시네마틱 ----------
   startCine(A, D) {
     this.cine = { a: A.idx, d: D.idx, f: 0, score: -1, strikeF: -1 };
@@ -108,6 +111,11 @@ export class Sim {
       D.hp = Math.max(0, D.hp - dmg);
       let nx = D.x - A.x, nz = D.z - A.z; const l = Math.hypot(nx, nz) || 1; nx /= l; nz /= l;
       D.state = 'launched'; D.f = 0; D.y = 0.02; D.vy = 6.5; D.juggle = 3; D.vx = nx * 4.5; D.vz = nz * 4.5; D.launchUid = ++this.uid;
+      if (A.style === 'thunder') { // 발도술: 상대를 꿰뚫고 반대편에 서 있음, 상대는 그 자리에 쓰러짐
+        A.x = D.x + nx * 1.6; A.z = D.z + nz * 1.6; A.yaw = Math.atan2(-nx, -nz);
+        D.vx = -nx * 0.6; D.vz = -nz * 0.6; D.vy = 4.2;
+      } else if (A.style === 'wind') { D.vy = 8.5; D.vx = nx * 2.5; D.vz = nz * 2.5; } // 회오리: 높이 띄움
+      else if (A.style === 'fire') { D.vy = 3.5; D.vx = nx * 6; D.vz = nz * 6; }      // 내려찍기: 멀리 튕겨냄
       A.state = 'ougiEnd'; A.f = 0;
       this.cine = null;
       this.hitstop = 14;
