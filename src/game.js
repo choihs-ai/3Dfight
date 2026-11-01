@@ -5,6 +5,7 @@ import { AI } from './core/ai.js';
 import { Sound } from './audio/sound.js';
 import { show } from './ui/hud.js';
 import { CHARACTERS } from './data/characters.js';
+import { MV } from './core/moves.js';
 
 export const DIFFSHORT = { practice: '연습', easy: '쉬움', normal: '보통', hard: '어려움' };
 export const DIFFNAME = { practice: '연습 인형', easy: 'CPU · 쉬움', normal: 'CPU · 보통', hard: 'CPU · 어려움' };
@@ -82,61 +83,80 @@ export class Game {
     return [lerp(lp[0], dc[0], 0.25), lerp(lp[1], dc[1], 0.15), lerp(lp[2], dc[2], 0.25)];
   }
   handle(events) {
-    const v = this.view, hud = this.hud, P = v.particles, cam = v.camera, pl = this.mode !== 'demo';
-    const shake = (s) => { cam.shake = Math.max(cam.shake, s); };
+    const v = this.view, hud = this.hud, P = v.particles, FX = v.hitfx, cam = v.camera, pl = this.mode !== 'demo';
+    const shake = (amt, a, d) => {
+      cam.shake = Math.max(cam.shake, amt);
+      if (a !== undefined) { const A = this.sim.f[a], D = this.sim.f[d], dx = D.x - A.x, dz = D.z - A.z, l = Math.hypot(dx, dz) || 1; cam.shakeDir = [dx / l, 0.3, dz / l]; }
+    };
+    const elCol = (i) => v.fx[i].ch.trail[1];
     for (const e of events) {
       switch (e.t) {
         case 'hit': {
-          const hp = this.sparkPos(e.a, e.d, e.limb);
+          const hp = this.sparkPos(e.a, e.d, e.limb), el = v.fx[e.a].ch.id, big = e.dmg >= 12 || e.counter;
           v.hitFlash(e.d, 5, e.counter ? [1, 0.35, 0.2] : [1, 1, 1]); v.fx[e.d].lagDelay = 40;
           P.sparks(hp, e.counter ? 'counter' : 'hit', e.dmg);
-          P.elementBurst(hp, v.fx[e.a].ch.id, e.dmg + (e.counter ? 4 : 0));
-          shake(e.dmg >= 12 ? 0.16 : 0.07);
-          Sound.play(e.dmg >= 12 ? 'heavy' : 'hit');
+          P.elementBurst(hp, el, e.dmg + (e.counter ? 4 : 0));
+          // 붓터치 베기 자국 + 충격파
+          FX.stroke(hp, v.strokeAngle(e.a), elCol(e.a), 1.0 + e.dmg * 0.06 + (e.counter ? 0.5 : 0), big ? 1.2 : 0.8);
+          FX.ring(hp, elCol(e.a), big ? 1.5 : 1.0);
+          if (e.move === 'slash_down' || e.move === 'helm' || e.move === 'sweep' || e.ko) FX.ring([this.sim.f[e.d].x, 0, this.sim.f[e.d].z], elCol(e.a), 1.3, true);
+          shake(big ? 0.2 : 0.09, e.a, e.d);
+          cam.punch = Math.max(cam.punch, (big ? 6 : 2.5) + (e.counter ? 3 : 0));
+          Sound.play(e.counter ? 'counter' : e.dmg >= 12 ? 'heavy' : 'hit');
+          Sound.play('el_' + el);
           if (pl) {
-            if (e.counter) hud.call(e.a, '카운터!', 'red');
+            hud.hitBar(e.d, big);
+            if (e.counter) { hud.call(e.a, '카운터!', 'red'); hud.impact(); }
             if (e.launch) hud.call(e.a, '띄우기!', 'gold');
-            if (e.combo >= 2) hud.call(e.a, e.combo + ' 히트', 'combo');
+            if (e.combo >= 2) hud.call(e.a, e.combo + ' 히트', 'combo' + (e.combo >= 4 ? ' big' : ''));
             if (e.a === 0) { this.stats.hits++; this.stats.maxCombo = Math.max(this.stats.maxCombo, e.combo); }
             if (e.d === 0 && navigator.vibrate) try { navigator.vibrate(e.dmg >= 12 ? 40 : 20); } catch (_) { /* */ }
           }
-          if (e.ko) this.slow = Math.max(this.slow, 1.1);
+          if (e.ko) {
+            this.slow = Math.max(this.slow, 1.3);
+            cam.cine = { t: 1.6, side: Math.random() < 0.5 ? 1 : -1 };
+            if (pl) hud.impact();
+          }
           break;
         }
         case 'block': {
           const hp = this.sparkPos(e.a, e.d, e.limb);
           v.hitFlash(e.d, 3, [0.4, 0.7, 1]);
           P.sparks(hp, e.brk ? 'armor' : 'block');
-          Sound.play(e.brk ? 'heavy' : 'block');
-          if (e.brk && pl) hud.call(e.d === 0 ? 1 : 0, '가드 브레이크!', 'red');
+          FX.ring(hp, e.brk ? [1, 0.5, 0.2] : [0.6, 0.85, 1], e.brk ? 1.4 : 0.7);
+          if (e.brk) FX.stroke(hp, v.strokeAngle(e.a), [1, 0.5, 0.2], 1.6, 1);
+          shake(e.brk ? 0.15 : 0.04, e.a, e.d);
+          Sound.play(e.brk ? 'guardbreak' : 'block');
+          if (pl) { if (e.brk) { hud.call(e.d === 0 ? 1 : 0, '가드 브레이크!', 'red'); hud.hitBar(e.d, true); } }
           break;
         }
         case 'parry': {
           const hp = this.sparkPos(e.a, e.d, e.limb);
           v.hitFlash(e.a, 6, [1, 0.9, 0.5]);
           P.sparks(hp, 'parry'); Sound.play('parry');
-          this.slow = Math.max(this.slow, 0.35); shake(0.1); hud.flash(0.35);
+          FX.ring(hp, [1, 0.85, 0.4], 2.0); FX.stroke(hp, v.strokeAngle(e.a) + Math.PI / 2, [1, 0.9, 0.6], 1.8, 1.5);
+          this.slow = Math.max(this.slow, 0.45); shake(0.1); cam.punch = Math.max(cam.punch, 5); hud.flash(0.35);
           if (pl) { hud.call(e.d, '패링!', 'gold'); if (e.d === 0) this.stats.parries++; }
           break;
         }
         case 'armor': {
           const hp = this.sparkPos(e.a, e.d, e.limb);
           v.fx[e.d].lagDelay = 40; v.hitFlash(e.d, 6, [1, 0.6, 0.2]);
-          P.sparks(hp, 'armor'); Sound.play('heavy');
+          P.sparks(hp, 'armor'); FX.ring(hp, [1, 0.55, 0.2], 1.2); Sound.play('heavy');
           if (pl) hud.call(e.d, '슈퍼아머', 'gold');
           break;
         }
-        case 'land': P.sparks([e.x, 0, e.z], 'dust'); Sound.play('land'); shake(0.06); break;
-        case 'whoosh': Sound.play('whoosh'); break;
+        case 'land': P.sparks([e.x, 0, e.z], 'dust'); FX.ring([e.x, 0, e.z], [0.8, 0.7, 0.6], 1.0, true); Sound.play('land'); shake(0.08); break;
+        case 'whoosh': Sound.play('whoosh', { power: MV[e.move] ? MV[e.move].dmg : 8 }); break;
         case 'roll': Sound.play('roll'); break;
         case 'round':
           v.resetRound(this.sim);
-          if (pl) { hud.banner(this.sim.mode === 'practice' ? '연습' : 'ROUND ' + e.round); Sound.play('bell'); }
+          if (pl) { hud.banner(this.sim.mode === 'practice' ? '연습' : 'ROUND ' + e.round); Sound.play('bell'); setTimeout(() => Sound.play('draw'), 450); }
           hud.pips(this.sim.wins);
           break;
         case 'fight': if (pl) { hud.banner('FIGHT!', 'fight'); Sound.play('bell'); } break;
         case 'ko':
-          if (pl) { hud.banner(e.timeout ? 'TIME' : 'K.O.', 'ko'); Sound.play(e.timeout ? 'bell' : 'ko'); }
+          if (pl) { hud.banner(e.timeout ? 'TIME' : 'K.O.', 'ko'); Sound.play(e.timeout ? 'bell' : 'ko'); if (e.winner >= 0) setTimeout(() => Sound.play('sheath'), 2100); }
           hud.pips(this.sim.wins);
           break;
         case 'matchEnd': if (this.mode === 'match' || this.mode === 'practice') this.showResult(); break;

@@ -12,7 +12,7 @@ export class Hud {
   }
   call(side, text, cls) {
     const col = side === 0 ? $('#cL') : $('#cR');
-    if (cls === 'combo') { const old = col.querySelector('.combo'); if (old) old.remove(); }
+    if (cls.startsWith('combo')) { const old = col.querySelector('.combo'); if (old) old.remove(); }
     while (col.children.length >= 3) col.firstChild.remove();
     const d = document.createElement('div');
     d.className = 'call ' + cls; d.textContent = text; col.appendChild(d);
@@ -27,6 +27,17 @@ export class Hud {
     b.appendChild(s);
   }
   flash(v) { this.flashV = Math.max(this.flashV, v); }
+  // 임팩트 프레임: 화면을 한순간 반전 (카운터·KO)
+  impact() {
+    const el = document.querySelector('#impact');
+    el.style.opacity = '1';
+    requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => { el.style.opacity = '0'; })));
+  }
+  // 맞은 쪽 체력바 흔들기
+  hitBar(i, big) {
+    const b = this.hpb[i];
+    b.classList.remove('shake', 'shake2'); void b.offsetWidth; b.classList.add(big ? 'shake2' : 'shake');
+  }
   pips(wins) {
     for (let i = 0; i < 2; i++) $('#pip' + i).innerHTML = '<span class="pip' + (wins[i] > 0 ? ' on' : '') + '"></span><span class="pip' + (wins[i] > 1 ? ' on' : '') + '"></span>';
   }

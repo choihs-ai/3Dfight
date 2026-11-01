@@ -8,6 +8,7 @@ import { LockOnCamera } from './camera.js';
 import { addLights, FOGC, FOG } from './lighting.js';
 import { ProcAnimator } from '../anim/procedural.js';
 import { SwordTrail } from './trails.js';
+import { HitFx } from './hitfx.js';
 import { CHARACTERS } from '../data/characters.js';
 import { SwordsmanRig, loadSwordsman, swordsmanReady } from './swordsman.js';
 
@@ -24,6 +25,7 @@ export class View {
     addLights(this.scene);
     this.arena = buildArena(this.scene);
     this.particles = new Particles(this.scene);
+    this.hitfx = new HitFx(this.scene);
     this.camera = new LockOnCamera();
     this.fx = [0, 1].map((i) => ({ anim: new ProcAnimator(i), flash: 0, flashCol: [1, 1, 1], hpLag: MAXHP, lagDelay: 0 }));
     this.setCharacters([CHARACTERS[1], CHARACTERS[0]]);
@@ -83,6 +85,13 @@ export class View {
     this.camera.snap = true;
   }
   hitFlash(i, frames, col) { const f = this.fx[i]; f.flash = frames; f.flashCol = col; }
+  // 공격자 칼끝이 화면에서 움직인 방향(각도) — 붓터치 방향용
+  strokeAngle(i) {
+    const S = this.fx[i].trail.samples.filter(Boolean);
+    if (S.length < 2) return 0;
+    const cam = this.camera.cam, a = new THREE.Vector3(...S[Math.min(3, S.length - 1)].t).project(cam), b = new THREE.Vector3(...S[0].t).project(cam);
+    return Math.atan2(b.y - a.y, (b.x - a.x) * cam.aspect);
+  }
   // 파티클 위치용
   limbPos(i, limb) { return this.fx[i].anim.limbPos(limb); }
   center(i) { return this.fx[i].anim.center(); }
@@ -124,6 +133,7 @@ export class View {
     }
     for (const f of this.fx) f.trail.update();
     const cam = this.camera.cam;
+    this.hitfx.update(dt, cam);
     this.arena.update(t, cam, this.camera.eye, this.shadows);
     const tanY = Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2);
     this.particles.upload(this.renderer.domElement.height / (2 * tanY));
