@@ -80,7 +80,7 @@ export class ElementFx {
     const big = power >= 12, s = big ? 1.35 : 1;
     const right = [dir[2], 0, -dir[0]], up = [0, 1, 0];
     if (el === 'fire') { // 불꽃 바퀴 + 위로 솟는 불길
-      this.next().start('fire', arc(p, 0.55 * s, -0.4, Math.PI * 1.7, 40, right, up), { width: (u) => 0.5 * s * (0.3 + u), life: 0.45, reveal: 0.1 });
+      this.next().start('fire', arc(p, 0.55 * s, -0.4, Math.PI * 1.7, 40, right, up), { width: (u) => 0.6 * s * (0.3 + u), life: 0.45, reveal: 0.1 });
       this.next().start('fire', [[p[0], p[1] - 0.6, p[2]], [p[0], p[1] + 0.1, p[2]], [p[0], p[1] + 0.9 * s, p[2]]], { width: 0.7 * s, life: 0.35, reveal: 0.08 });
     } else if (el === 'water') { // 공격 방향으로 휘어지는 초승달 물살 2겹
       for (let k = 0; k < 2; k++) this.next().start('water', arc(p, (0.7 + k * 0.25) * s, Math.PI * (0.9 - k * 0.1), -Math.PI * (0.15 + k * 0.1), 36, right, [dir[0] * 0.5, 0.85, dir[2] * 0.5]), { width: (u) => 0.45 * s * Math.sin(Math.PI * u) + 0.05, life: 0.55, reveal: 0.14, delay: k * 0.05 });
@@ -90,11 +90,8 @@ export class ElementFx {
         const to = [p[0] + Math.cos(a) * L, p[1] + e * L * 0.6, p[2] + Math.sin(a) * L];
         this.next().start('thunder', bolt(p, to), { width: 0.35, life: 0.25, reveal: 0.04, flicker: () => bolt(p, to) });
       }
-    } else { // 나선 회오리 2가닥
-      for (let k = 0; k < 2; k++) {
-        const pts = Array.from({ length: 48 }, (_, i) => { const u = i / 47, a = u * Math.PI * 4 + k * Math.PI, r = (0.25 + u * 0.45) * s; return [p[0] + Math.cos(a) * r, p[1] - 0.5 + u * 1.3 * s, p[2] + Math.sin(a) * r]; });
-        this.next().start('wind', pts, { width: 0.35 * s, life: 0.5, reveal: 0.16, delay: k * 0.04 });
-      }
+    } else { // 날카로운 바람 칼날(초승달) 2겹 — 작고 빠르게
+      for (let k = 0; k < 2; k++) this.next().start('wind', arc(p, (0.38 + k * 0.12) * s, Math.PI * (0.85 - k * 0.1), -Math.PI * 0.1, 26, right, [dir[0] * 0.4, 0.9, dir[2] * 0.4]), { width: 0.28 * s, life: 0.32, reveal: 0.07, delay: k * 0.03 });
     }
   }
   // 오의: 그린 문양을 원소로 공간에 띄움. center: 상대 가슴, right/up: 화면 기준 축, shape: [-1,1] 2D 점들
@@ -107,7 +104,7 @@ export class ElementFx {
       this.next().start('thunder', mk(), { width: 0.9, life: 0.9, reveal: 0.08, flicker: mk });
       this.next().start('thunder', mk(), { width: 0.5, life: 0.9, reveal: 0.08, flicker: mk });
     } else {
-      const w = el === 'fire' ? 1.0 : el === 'water' ? 0.9 : 0.8;
+      const w = el === 'fire' ? 1.0 : el === 'water' ? 0.9 : 0.5;
       this.next().start(el, pts, { width: (u, k) => w * (0.35 + 0.65 * Math.sin(Math.PI * Math.min(1, u * 1.1))) * (1 + k * 0.3), life: 1.0, reveal: 0.35 });
       this.next().start(el, pts.map((q) => [q[0], q[1], q[2]]), { width: w * 0.45, life: 1.0, reveal: 0.3, delay: 0.06 });
     }
@@ -127,9 +124,9 @@ export class ElementFx {
       for (let k = 0; k < 3; k++) { const top = [D[0] + (Math.random() - 0.5) * 1.5, 6, D[2] + (Math.random() - 0.5) * 1.5]; this.next().start('thunder', bolt(top, [D[0], 0.9, D[2]], 18, 0.5), { width: 0.8, life: 0.4, reveal: 0.04, delay: 0.1 + k * 0.08, flicker: () => bolt(top, [D[0], 0.9, D[2]], 18, 0.5) }); }
     } else { // 두 사람을 감싸는 큰 회오리
       const cx = (A[0] + D[0]) / 2, cz = (A[2] + D[2]) / 2;
-      for (let k = 0; k < 3; k++) {
-        const pts = Array.from({ length: 80 }, (_, i) => { const u = i / 79, a = u * Math.PI * 6 + k * 2.1, r = 0.6 + u * 1.6; return [cx + Math.cos(a) * r, u * 3.5, cz + Math.sin(a) * r]; });
-        this.next().start('wind', pts, { width: 0.7, life: 1.2, reveal: 0.5, delay: k * 0.08 });
+      for (let k = 0; k < 2; k++) {
+        const pts = Array.from({ length: 64 }, (_, i) => { const u = i / 63, a = u * Math.PI * 4.5 + k * Math.PI, r = 0.45 + u * 0.75; return [cx + Math.cos(a) * r, 0.2 + u * 2.4, cz + Math.sin(a) * r]; });
+        this.next().start('wind', pts, { width: 0.45, life: 0.9, reveal: 0.35, delay: k * 0.08 });
       }
     }
   }

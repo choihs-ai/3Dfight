@@ -44,11 +44,12 @@ export class SwordTrail {
     this.mesh.frustumCulled = false; this.mesh.renderOrder = 9;
     this.scene = scene;
     scene.add(this.mesh);
-    this.jitter = 0;
+    this.jitter = 0; this.wind = ch.id === 'wind';
   }
   // 로직 1프레임마다: active면 현재 칼 위치 기록, 아니면 빈칸으로 서서히 사라짐
   push(active, anim) {
-    this.samples.unshift(active ? { b: anim.bladePoint(-0.05), t: anim.bladePoint(1.3) } : null);
+    // 원소 띠는 칼날보다 바깥으로 넘치게 (바람은 칼날 길이만큼만)
+    this.samples.unshift(active ? { b: anim.bladePoint(this.wind ? 0.3 : -0.05), t: anim.bladePoint(this.wind ? 1.15 : 1.35) } : null);
     if (this.samples.length > N) this.samples.length = N;
   }
   clear() { this.samples.length = 0; }
