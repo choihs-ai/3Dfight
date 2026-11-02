@@ -2,6 +2,8 @@
 import * as THREE from 'three';
 import { MAXHP } from '../core/util.js';
 import { buildArena } from './arena.js';
+import { buildShrine } from './shrine.js';
+export const STAGES = { shrine: { name: '대나무숲 신사', build: buildShrine }, ruins: { name: '석양 유적', build: buildArena } };
 import { BoxCharacter } from './boxCharacter.js';
 import { Particles } from './particles.js';
 import { LockOnCamera } from './camera.js';
@@ -23,8 +25,8 @@ export class View {
     this.renderer = r;
     this.scene = new THREE.Scene();
     this.scene.fog = new THREE.Fog(new THREE.Color(...FOGC), FOG[0], FOG[1]);
-    addLights(this.scene);
-    this.arena = buildArena(this.scene);
+    this.lights = addLights(this.scene);
+    this.setStage('shrine');
     this.particles = new Particles(this.scene);
     this.hitfx = new HitFx(this.scene);
     this.elfx = new ElementFx(this.scene);
@@ -56,6 +58,18 @@ export class View {
       else { f.anim = new ProcAnimator(i); f.char = new BoxCharacter(this.scene, ch); }
       if (this.sim) f.anim.fk(this.sim.f[i]);
     });
+  }
+  // 경기장 바꾸기 (조명·안개·하늘 포함)
+  setStage(id) {
+    if (this.stageId === id) return;
+    if (this.arena) this.arena.dispose();
+    this.stageId = id; this.arena = (STAGES[id] || STAGES.shrine).build(this.scene);
+    const E = this.arena.env, L = this.lights;
+    L.hemi.color.setRGB(...E.sky); L.hemi.groundColor.setRGB(...E.gnd);
+    L.sun.color.setRGB(...E.sunCol); L.sun.position.set(...E.sun);
+    this.scene.fog.color.setRGB(...E.fog);
+    if (E.fogRange) { this.scene.fog.near = E.fogRange[0]; this.scene.fog.far = E.fogRange[1]; } else { this.scene.fog.near = FOG[0]; this.scene.fog.far = FOG[1]; }
+    this.renderer.setClearColor(new THREE.Color(...E.fog), 1);
   }
   // 셰이더를 미리 컴파일 (처음 칼을 휘두르거나 이펙트가 나올 때 멈칫하는 것 방지)
   warmup() {
@@ -101,8 +115,8 @@ export class View {
   // sim.step() 직후 매번 호출 (advanced=false면 히트스톱으로 멈춘 프레임)
   onStep(sim, advanced, t) {
     this.sim = sim;
-    this.particles.flames(this.arena.braziers);
-    this.particles.embers();
+    if (this.arena.env.ambient === 'shrine') this.particles.shrineAmbient(this.arena.braziers);
+    else { this.particles.flames(this.arena.braziers); this.particles.embers(); }
     this.particles.update(1 / 60);
     if (this.camera.shake > 0) this.camera.shake *= 0.86;
     if (!advanced) return;

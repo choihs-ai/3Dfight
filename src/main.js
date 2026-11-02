@@ -42,6 +42,14 @@ try { speedI = Math.max(0, SPEEDS.findIndex((x) => String(x[1]) === localStorage
 const applySpeed = () => { game.speed = SPEEDS[speedI][1]; $('#speedBtn').textContent = '속도: ' + SPEEDS[speedI][0]; };
 applySpeed();
 $('#speedBtn').addEventListener('click', () => { speedI = (speedI + 1) % SPEEDS.length; applySpeed(); try { localStorage.setItem('lof.speed', String(SPEEDS[speedI][1])); } catch (_) { /* */ } });
+// 경기장 선택 (기기에 저장)
+import { STAGES } from './render/view.js';
+const STAGE_IDS = Object.keys(STAGES);
+let stageI = 0;
+try { stageI = Math.max(0, STAGE_IDS.indexOf(localStorage.getItem('lof.stage'))); } catch (_) { /* */ }
+const applyStage = () => { view.setStage(STAGE_IDS[stageI]); view.warmup(); $('#stageBtn').textContent = '경기장: ' + STAGES[STAGE_IDS[stageI]].name; };
+applyStage();
+$('#stageBtn').addEventListener('click', () => { stageI = (stageI + 1) % STAGE_IDS.length; applyStage(); try { localStorage.setItem('lof.stage', STAGE_IDS[stageI]); } catch (_) { /* */ } });
 let movesFrom = '#title';
 // 캐릭터 선택
 let pick = 0;

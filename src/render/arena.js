@@ -45,6 +45,7 @@ gl_FragColor=vec4(c,1.);}`;
 const v3 = (a) => new THREE.Vector3(...a);
 
 export function buildArena(scene) {
+  const root = new THREE.Group(); scene.add(root);
   // 기둥, 담, 화로
   const R = seeded(7);
   const stone = new GB(), dark = new GB(), metal = new GB(), BRAZ = [];
@@ -64,14 +65,14 @@ export function buildArena(scene) {
   }
   const rim = { value: v3([0.05, 0.03, 0.03]) };
   for (const [g, col] of [[stone, [0.5, 0.46, 0.42]], [dark, [0.28, 0.25, 0.24]], [metal, [0.2, 0.18, 0.17]]]) {
-    scene.add(new THREE.Mesh(g.build(), rimLambert(col, rim)));
+    root.add(new THREE.Mesh(g.build(), rimLambert(col, rim)));
   }
   // 화로 불빛 (메시용 three 포인트라이트)
   const lights = BRAZ.map((b) => {
     const l = new THREE.PointLight(0xff8533, 1, 11, 1);
     l.color.setRGB(1, 0.52, 0.2);
     l.position.set(b[0], b[1] + 0.3, b[2]);
-    scene.add(l);
+    root.add(l);
     return l;
   });
 
@@ -85,7 +86,7 @@ export function buildArena(scene) {
   };
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(180, 180).rotateX(-Math.PI / 2),
     new THREE.ShaderMaterial({ vertexShader: VS_GROUND, fragmentShader: FS_GROUND, uniforms: groundU }));
-  scene.add(ground);
+  root.add(ground);
 
   // 하늘: 화면 전체 삼각형
   const skyG = new THREE.BufferGeometry();
@@ -94,10 +95,12 @@ export function buildArena(scene) {
     uMoon: { value: v3(MOON) }, uT: { value: 0 }, uFogCol: { value: v3(FOGC) } };
   const sky = new THREE.Mesh(skyG, new THREE.ShaderMaterial({ vertexShader: VS_SKY, fragmentShader: FS_SKY, uniforms: skyU, depthTest: false, depthWrite: false }));
   sky.frustumCulled = false; sky.renderOrder = -10;
-  scene.add(sky);
+  root.add(sky);
 
   return {
-    braziers: BRAZ,
+    root, braziers: BRAZ, name: '석양 유적',
+    env: { fog: FOGC, sunCol: SUN_COL, sun: SUN, sky: SKY_AMB, gnd: GND_AMB, ambient: 'embers' },
+    dispose() { scene.remove(root); root.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); },
     // 매 렌더 프레임: 불빛 깜빡임, 하늘/바닥 유니폼
     update(t, camera, eye, shadows) {
       for (let i = 0; i < 4; i++) {

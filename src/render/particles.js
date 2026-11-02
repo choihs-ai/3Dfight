@@ -116,6 +116,12 @@ export class Particles {
       this.emit(Math.cos(a) * r, rnd(0.1, 1.5), Math.sin(a) * r, rnd(-0.2, 0.2), rnd(0.25, 0.6), rnd(-0.2, 0.2), rnd(2.5, 4.5), 0.06, 0.03, 1, rnd(0.45, 0.7), 0.2, 0.9, 0.02, 0.995);
     }
   }
+  // 대나무숲 신사 분위기: 반딧불이, 떨어지는 대나무 잎, 석등 안 작은 불빛
+  shrineAmbient(lamps) {
+    if (Math.random() < 0.3) { const a = Math.random() * Math.PI * 2, r = rnd(4, 16); this.emit(Math.cos(a) * r, rnd(0.3, 2.2), Math.sin(a) * r, rnd(-0.25, 0.25), rnd(-0.1, 0.15), rnd(-0.25, 0.25), rnd(1.2, 2.6), 0.07, 0.04, 0.75, 1, 0.35, 1, 0, 0.995); }
+    if (Math.random() < 0.12) { const a = Math.random() * Math.PI * 2, r = rnd(6, 15); this.emit(Math.cos(a) * r, rnd(5, 8), Math.sin(a) * r, rnd(-0.5, 0.5), rnd(-0.9, -0.5), rnd(-0.5, 0.5), rnd(5, 8), 0.09, 0.08, 0.16, 0.3, 0.12, 0.8, 0, 0.995); }
+    for (const b of lamps) if (Math.random() < 0.25) this.emit(b[0] + rnd(-0.08, 0.08), b[1] - 0.05, b[2] + rnd(-0.08, 0.08), 0, rnd(0.1, 0.3), 0, rnd(0.2, 0.4), 0.18, 0.06, 1, 0.6, 0.2, 0.5, 0, 0.98);
+  }
   flames(braziers) {
     for (const b of braziers) {
       this.emit(b[0] + rnd(-0.14, 0.14), b[1], b[2] + rnd(-0.14, 0.14), rnd(-0.15, 0.15), rnd(1.1, 1.9), rnd(-0.15, 0.15), rnd(0.35, 0.6), rnd(0.4, 0.6), 0.08, 1, rnd(0.42, 0.6), 0.15, 0.85, 0.6, 0.97);

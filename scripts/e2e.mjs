@@ -120,7 +120,8 @@ for (const lv of ['easy', 'normal', 'hard']) {
   check(true, `온라인 연결 + 대전 시작 (방 ${code})`);
   // 몇 초 동안 서로 공격
   for (let i = 0; i < 12; i++) { await A.keyboard.press(['u', 'i', 'k', 'y'][i % 4]); await B.keyboard.press(['k', 'u', 'j', 'i'][i % 4]); await A.keyboard.down('w'); await A.waitForTimeout(250); await A.keyboard.up('w'); }
-  await A.waitForTimeout(1500);
+  // 느린 환경에서도 비교할 프레임이 충분히 쌓일 때까지 기다림 (최대 40초)
+  for (let i = 0; i < 80; i++) { const f = Math.min(await A.evaluate(() => window.__G.frame), await B.evaluate(() => window.__G.frame)); if (f >= 260) break; await A.waitForTimeout(500); }
   const ha = await A.evaluate(() => ({ log: window.__game.hashLog || {}, f: window.__G.frame, me: window.__game.me })), hb = await B.evaluate(() => ({ log: window.__game.hashLog || {}, f: window.__G.frame, me: window.__game.me }));
   const common = Object.keys(ha.log).filter((k) => k in hb.log);
   const same = common.filter((k) => ha.log[k] === hb.log[k]).length;
