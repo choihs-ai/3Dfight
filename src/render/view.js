@@ -14,6 +14,7 @@ import { HitFx } from './hitfx.js';
 import { ElementFx } from './elementfx.js';
 import { CHARACTERS } from '../data/characters.js';
 import { SwordsmanRig, loadSwordsman, swordsmanReady } from './swordsman.js';
+import { createVrmRig, vrmPrefetch } from './vrmRig.js';
 
 THREE.ColorManagement.enabled = false;
 
@@ -40,6 +41,7 @@ export class View {
       this.modelState = 'ready';
       this.setCharacters(this.fx.map((f) => f.ch), true);
       this.warmup();
+      vrmPrefetch(import.meta.env.BASE_URL).then(() => { this.vrmReady = true; this.setCharacters(this.fx.map((f) => f.ch), true); }).catch((e) => console.warn('VRM 캐릭터를 불러오지 못했어요', e));
       if (this.sim) this.fx.forEach((f, i) => { f.anim.reset(); f.anim.fk(this.sim.f[i]); });
     }).catch((e) => { console.warn('검객 모델을 불러오지 못해 박스 검객으로 표시합니다', e); this.modelState = 'failed'; });
     this.emit = [0, 0, 0];
@@ -57,6 +59,16 @@ export class View {
       if (swordsmanReady()) { f.char = f.anim = new SwordsmanRig(this.scene, ch); }
       else { f.anim = new ProcAnimator(i); f.char = new BoxCharacter(this.scene, ch); }
       if (this.sim) f.anim.fk(this.sim.f[i]);
+      // 애니풍 VRM 캐릭터는 비동기로 만든 뒤 교체 (그 사이엔 위 검객이 보임)
+      const token = (f.token = (f.token || 0) + 1);
+      if (this.vrmReady && ch.vrm && swordsmanReady()) {
+        createVrmRig(this.scene, ch, import.meta.env.BASE_URL).then((rig) => {
+          if (f.token !== token) { rig.dispose(); return; }
+          f.char.dispose(); f.char = f.anim = rig;
+          if (this.sim) rig.fk(this.sim.f[i]);
+          this.warmup();
+        }).catch((e) => console.warn('VRM 캐릭터 생성 실패', e));
+      }
     });
   }
   // 경기장 바꾸기 (조명·안개·하늘 포함)

@@ -47,7 +47,8 @@ export const Sound = {
   },
   // 금속 울림: 배음이 정수배가 아닌 사인파 묶음 (칼끼리 부딪히는 소리)
   metal(base, dur, g, rv = true) {
-    for (const [r, gg] of [[1, 1], [2.76, 0.6], [5.4, 0.4], [8.93, 0.25], [13.3, 0.15]]) this.tone(base * r, base * r * 0.995, dur * (1.2 - r * 0.05), 'sine', g * gg * 0.35, 0, rv);
+    const ny = (this.ctx ? this.ctx.sampleRate : 44100) * 0.45; // 나이퀴스트 넘는 배음은 생략
+    for (const [r, gg] of [[1, 1], [2.76, 0.6], [5.4, 0.4], [8.93, 0.25], [13.3, 0.15]]) if (base * r < ny) this.tone(base * r, base * r * 0.995, dur * (1.2 - r * 0.05), 'sine', g * gg * 0.35, 0, rv);
   },
   play(n, opt = {}) {
     if (!this.ctx || this.muted) return;

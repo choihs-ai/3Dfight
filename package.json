@@ -10,6 +10,7 @@
     "e2e": "node scripts/e2e.mjs"
   },
   "dependencies": {
+    "@pixiv/three-vrm": "^3.5.5",
     "peerjs": "^1.5.5",
     "three": "^0.180.0"
   },

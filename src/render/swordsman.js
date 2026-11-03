@@ -12,6 +12,7 @@ export function loadSwordsman(url) {
   return new GLTFLoader().loadAsync(url).then((g) => { MODEL = g; return g; });
 }
 export const swordsmanReady = () => !!MODEL;
+export const swordsmanModel = () => MODEL;
 
 // 툰 그라데이션 (3단)
 const GRAD = (() => {
@@ -19,7 +20,7 @@ const GRAD = (() => {
   t.minFilter = t.magFilter = THREE.NearestFilter; t.needsUpdate = true; return t;
 })();
 const hx = (c) => new THREE.Color(c);
-function toonMat(color, rim) {
+export function toonMat(color, rim) {
   const m = new THREE.MeshToonMaterial({ color: hx(color), gradientMap: GRAD });
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uRim = rim;
@@ -29,16 +30,16 @@ function toonMat(color, rim) {
   m.customProgramCacheKey = () => 'toonRim';
   return m;
 }
-const OUTLINE = new THREE.MeshBasicMaterial({ color: 0x08080c, side: THREE.BackSide });
+export const OUTLINE = new THREE.MeshBasicMaterial({ color: 0x08080c, side: THREE.BackSide });
 OUTLINE.onBeforeCompile = (sh) => { sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', 'vec3 transformed = position + normal * 0.011;'); };
 OUTLINE.customProgramCacheKey = () => 'outline';
 
 // 칼: 오른손 뼈 기준 (Great Sword 모션의 두 손 그립에서 계산한 방향)
-const GRIP = new THREE.Vector3(0, 0.08, 0);
-const BLADE_DIR = new THREE.Vector3(0.81, 0.23, -0.53).normalize();
-const BLADE = { base: 0.14, tip: 1.0 };
+export const GRIP = new THREE.Vector3(0, 0.08, 0);
+export const BLADE_DIR = new THREE.Vector3(0.81, 0.23, -0.53).normalize();
+export const BLADE = { base: 0.14, tip: 1.0 };
 // 칼 로컬 좌표계: +z = 칼날 방향
-const BLADE_Q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), BLADE_DIR);
+export const BLADE_Q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), BLADE_DIR);
 
 // 뼈 방향(자식 뼈 쪽)으로 세운 부품: g(GB)에 y축 기준으로 만들고 회전시켜 붙임
 function alongBone(bone, childName) {
@@ -50,8 +51,9 @@ function alongBone(bone, childName) {
 const TMP = new THREE.Vector3();
 
 export class SwordsmanRig {
-  constructor(scene, ch) {
+  constructor(scene, ch, skip = false) {
     this.scene = scene; this.ch = ch;
+    if (skip) return; // 하위 클래스(VRM)가 직접 만듦
     this.group = new THREE.Group();   // 위치·방향 (sim)
     this.pivot = new THREE.Group();   // 구르기 회전 축 (엉덩이 높이)
     this.group.add(this.pivot);

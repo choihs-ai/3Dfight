@@ -19,7 +19,7 @@ npm run e2e      # 빌드본을 실제 브라우저(Playwright)로 띄워 CPU끼
 | 폴더 | 역할 | 화면 의존 |
 |---|---|---|
 | `src/core/` | **전투 규칙** — 프레임 데이터(`moves.js`), 파이터 상태머신(`fighter.js`), 판정(`combat.js`), 라운드/3판2선승(`sim.js`), CPU AI(`ai.js`) | 없음 (Node에서 실행) |
-| `src/anim/` | 캐릭터 자세·애니메이션 (지금은 코드로 만든 검술 자세, Mixamo 모션으로 교체 예정) | 없음 |
+| `src/anim/` | 기술 ↔ 모션 클립 연결(`clipMap.js`), 모델을 못 불러올 때 쓰는 코드 자세 | 없음 |
 | `src/data/` | 원소 캐릭터 데이터 | 없음 |
 | `src/render/` | Three.js 화면 — 경기장, 캐릭터, 파티클, **락온 카메라**(`camera.js`) | three |
 | `src/input/` | 터치 스틱·버튼, 키보드 → 프레임 입력 | DOM |
@@ -62,6 +62,21 @@ npm run e2e      # 빌드본을 실제 브라우저(Playwright)로 띄워 CPU끼
 - 기술 ↔ 클립 타이밍(시작/칼이 닿는 순간/끝): `src/anim/clipMap.js`
 - 몸(하오리·하카마·머리·카타나)은 `src/render/swordsman.js`에서 코드로 만들어 뼈에 붙임 (툰 셰이딩 + 외곽선)
 - 모델을 못 불러오면 박스 검객(코드 자세)으로 자동 대체
+
+## 애니풍 캐릭터 (VRM)
+
+- 모델: `public/models/vrm/girl.vrm`(아카네·미즈하), `boy.vrm`(라이카·하야테) — 원본·라이선스 문서는 `assets-src/vrm/`
+  - girl: **VRM1_Constraint_Twist_Sample** © 2022 pixiv Inc. (VRM Public License 1.0)
+  - boy: **Seed-san** — *Seed-san model by VirtualCast, Inc.* (VRM Public License 1.0, 크레딧 표기 필수 → 타이틀 화면에 표기)
+  - 두 라이선스 모두 개조·재배포·폭력 표현 허용. 용량 줄이기: `python3 tools/shrink-vrm.py`
+- `src/render/vrmRig.js`: VRM 로드 → Mixamo 클립을 VRM 정규화 뼈로 리타깃 → 원소별 머리색·눈색·표정(공격=화남, 피격=놀람, 승리=웃음)·시선
+  - 모델 안 쓰는 부품 제거, 대원복은 검정으로 재채색, 그늘진 피부 톤 보정
+- `src/render/garments.js`: **몸에 맞춰 자동으로 재단하는 의상** (몸 표면을 높이·각도별로 재서 감쌈 → 모델이 바뀌어도 맞음)
+  - 하오리: 목깃 → 어깨 → 밑단, 앞이 트인 두께 있는 천. 원소별 전통 문양 텍스처(불꽃 · 청해파 · 번개 · 삼잎) + 앞섶 깃 띠
+  - 넓은 소매(소매 주머니가 늦게 따라오며 흔들림), 부풀었다 정강이에서 모이는 하카마 + 흰 각반 + 허리띠
+  - 하오리 아랫자락 8조각 × 2마디: 중력·관성·다리 충돌로 흔들림 (골반 기울기와 상관없이 아래로 늘어짐)
+  - 전부 정규화 뼈에 스키닝(가슴/허리/엉덩이/어깨/팔/다리 사이 부드럽게), 히트스톱 동안은 천·머리카락도 멈춤
+- VRM을 받는 동안·실패하면 Mixamo 검객 → 박스 검객 순으로 대체
 
 ## 오의
 
