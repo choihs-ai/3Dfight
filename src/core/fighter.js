@@ -1,10 +1,11 @@
 // 파이터 상태머신 — 순수 로직. 화면/사운드는 sim.emit()으로 이벤트만 보냄.
 import { DT, MAXHP, clamp, turnTo } from './util.js';
-import { MV, resolveMove } from './moves.js';
+import { movesOf, resolveMove } from './moves.js';
+import { styleOf } from './styles.js';
 
 // 흐름 연계: 어떤 베기든 지속 끝 +FLOW_WINDOW 프레임 안에 다음 입력이 들어오면 후딜 없이 이어짐
 export const FLOW_WINDOW = 12;
-export const MAX_CHAIN = 5;          // 한 번에 이어지는 최대 기술 수
+export const MAX_CHAIN = 5;          // 한 번에 이어지는 최대 기술 수 (기본 — 캐릭터마다 다름: styles.js)
 export const FLOW_SKIP = 0.25;       // 이어지는 기술은 준비 동작(발생)의 앞 25%를 건너뜀
 
 // 오의: 기 게이지 꽉 차면 사용. 무적 돌진(OUGI_DASH) → 닿으면 시네마틱, 헛치면 큰 빈틈
@@ -26,11 +27,17 @@ export class Fighter {
       moveUid: 0, launchUid: 0, idleF: 0, moveStart: 0, chainStart: 0, chainN: 0, pendingNamed: false, gesture: 'h', swipeAng: 0,
       // 걷기 애니메이션용 정보 (wk: 0 변화없음 / 1 멈춤 / 2 앉음 / 3 걷기)
       wk: 0, wmx: 0, wmy: 0, wph: 0, ki: 0,
+      // 캐릭터 고유 시스템: 열기(불) · 발도/뇌속(번개) — 이번 기술에 붙은 효과
+      heat: 0, iaiF: 0, iaiReady: false, hitAt: -99, jfWin: 0, pendingJF: false, fx: '',
     });
   }
+  get S() { return styleOf(this.style); }
+  get mv() { return movesOf(this.style); }
+  resolve(b, d) { return resolveMove(b, d, this.style); }
   invuln() {
     const s = this.state, f = this.f;
-    return (s === 'roll' && f >= 2 && f <= 15) || s === 'down' || (s === 'getup' && f < 14) || s === 'ko' || s === 'win'
+    const ri = this.S.roll.inv;
+    return (s === 'roll' && f >= ri[0] && f <= ri[1]) || s === 'down' || (s === 'getup' && f < 14) || s === 'ko' || s === 'win'
       || (s === 'ougi' && f <= OUGI_DASH.startup + OUGI_DASH.active) || s === 'ougiCast' || s === 'ougiStrike' || s === 'ougiHeld' || (s === 'ougiEnd' && f < 10);
   }
   isCrouching() { return (this.state === 'idle' || this.state === 'blockstun') && this.crouch; }
@@ -45,17 +52,25 @@ export class Fighter {
     if (this.st <= 0) { this.st = 0; this.exhaust = true; }
     this.stDelay = Math.max(this.stDelay, delay);
   }
-  startMove(id, chained = false, named = false) {
-    const m = MV[id];
+  // fx: 이번 기술에 붙는 효과 'iai'(발도) | 'jf'(뇌속 연계) | 'blaze'(작열) | ''
+  startMove(id, chained = false, named = false, fx = '') {
+    const m = this.mv[id], S = this.S;
     // 연속기 중이면 첫 기술 시작 시점부터 들어온 입력을 다음 연결로 인정 (빠른 연타 허용)
     this.chainStart = chained ? this.chainStart : this.sim.frame;
     this.chainN = chained ? this.chainN + 1 : 0;
     this.state = 'attack'; this.move = m; this.f = 0; this.hitDone = false; this.pendingChain = null;
     this.useSt(m.stam, 30);
     this.moveUid = ++this.sim.uid; this.moveStart = this.sim.frame;
-    this.guard = false; this.crouch = false; this.armorOn = false;
+    this.guard = false; this.crouch = false; this.armorOn = false; this.hitAt = -99; this.iaiF = 0; this.iaiReady = false;
+    // 불: 불씨 3개 모이면 큰 기술이 작열
+    if (!fx && S.traits.heat && this.heat >= S.traits.heat && S.traits.blaze.includes(id)) { fx = 'blaze'; this.heat = 0; }
+    this.fx = fx;
+    if (fx) this.sim.emit({ t: fx, i: this.idx, move: id });
     // 흐름 연계로 이어진 기술은 준비 동작 앞부분을 건너뜀 (전용 연속기는 원래 프레임 그대로)
-    if (chained && !named) this.f = Math.floor(m.startup * FLOW_SKIP);
+    // 뇌속 연계는 거의 즉발, 발도 상태에서 나간 기술도 준비 동작이 짧음
+    if (fx === 'jf') this.f = Math.floor(m.startup * (named ? 0.5 : 0.7));
+    else if (fx === 'iai' && id !== 'iai_flash') this.f = Math.floor(m.startup * 0.4);
+    else if (chained && !named) this.f = Math.floor(m.startup * S.flowSkip);
   }
   startOugi() {
     this.state = 'ougi'; this.f = 0; this.ki = 0; this.hitDone = false; this.move = null;
@@ -72,7 +87,7 @@ export class Fighter {
     this.rollDir = [wx / l, wz / l];
     if (Math.abs(my) >= Math.abs(mx)) { this.rollAxis = 'x'; this.rollSign = my >= 0 ? 1 : -1; }
     else { this.rollAxis = 'z'; this.rollSign = mx > 0 ? 1 : -1; }
-    this.state = 'roll'; this.f = 0; this.useSt(22, 35); this.guard = false; this.crouch = false;
+    this.state = 'roll'; this.f = 0; this.useSt(this.S.roll.stam, 35); this.guard = false; this.crouch = false; this.move = null; this.iaiF = 0; this.iaiReady = false;
     this.sim.emit({ t: 'roll', i: this.idx });
   }
   update(inp, op) {
@@ -100,8 +115,19 @@ export class Fighter {
         if (sim.frame - inp.ougiPressed <= 6 && this.ki >= KI_MAX) { inp.ougiPressed = -99; this.startOugi(); break; }
         const fresh = sim.frame - inp.rollPressed <= 6;
         if (fresh && !this.exhaust && this.st >= 10) { inp.rollPressed = -99; this.startRoll(inp, dx, dz); break; }
+        // 번개 발도: 스틱을 놓고 가드 없이 가만히 있으면 칼을 넣고 기다림
+        const S = this.S;
+        if (S.traits.iai) {
+          if (Math.hypot(inp.mx, inp.my) < 0.18 && !this.guard) {
+            if (++this.iaiF === S.traits.iai) { this.iaiReady = true; sim.emit({ t: 'iaiReady', i: this.idx }); }
+          } else if (this.iaiF) { this.iaiF = 0; this.iaiReady = false; }
+        }
         const b = this.takeBuf(inp, 8);
-        if (b) { this.startMove(resolveMove(b.b, b.dir)); this.swipeAng = b.a || 0; break; }
+        if (b) {
+          let id = this.resolve(b.b, b.dir), fx = '';
+          if (this.iaiReady) { fx = 'iai'; if (b.b === 't') id = 'iai_flash'; }
+          this.startMove(id, false, false, fx); this.swipeAng = b.a || 0; break;
+        }
         if (!this.crouch) this.walk(inp, op, dist, dx, dz);
         else this.wk = 2;
         break;
@@ -113,20 +139,28 @@ export class Fighter {
           const s = m.lunge / (m.startup + m.active);
           this.x += Math.sin(this.yaw) * s; this.z += Math.cos(this.yaw) * s;
         }
-        if (f === m.startup - 2) sim.emit({ t: 'whoosh', i: this.idx, move: m.id });
+        if (f === m.startup - 2 && !m.noHit) sim.emit({ t: 'whoosh', i: this.idx, move: m.id });
         this.armorOn = !!(m.armor && f >= m.armor[0] && f <= m.armor[1]);
         // 다음 입력 받기: 전용 연속기(chain) 우선, 아니면 아무 베기나 흐름 연계 (연계 구간 안에서만)
-        if (!this.pendingChain && f >= 2 && f <= m.startup + m.active + FLOW_WINDOW && this.chainN < MAX_CHAIN - 1) {
+        const S = this.S;
+        if (!this.pendingChain && !m.noHit && f >= 2 && f <= m.startup + m.active + FLOW_WINDOW && this.chainN < S.maxChain - 1) {
           const bb = inp.buf;
           for (let i = 0; i < bb.length; i++) {
             const e = bb[i];
             if (e.t < this.chainStart + 2) continue;
             const named = m.chain && m.chain[e.b];
-            this.pendingChain = named || resolveMove(e.b, e.dir); this.pendingNamed = !!named;
+            this.pendingChain = named || this.resolve(e.b, e.dir); this.pendingNamed = !!named;
+            // 번개 뇌속: 맞은 순간(히트스톱 동안 + 여유)에 그었으면
+            this.pendingJF = !!S.traits.jf && this.hitAt >= 0 && e.t > this.hitAt && e.t <= this.hitAt + this.jfWin;
             this.pendingAng = e.a || 0; bb.splice(i, 1); break;
           }
         }
-        if (this.pendingChain && f >= m.startup + m.active + 1) { this.startMove(this.pendingChain, true, this.pendingNamed); this.swipeAng = this.pendingAng; break; }
+        if (this.pendingChain && f >= m.startup + m.active + 1) { this.startMove(this.pendingChain, true, this.pendingNamed, this.pendingJF ? 'jf' : ''); this.swipeAng = this.pendingAng; break; }
+        // 바람 걸음: 베기가 닿은 뒤 후딜을 구르기로 끊음
+        const rc = S.traits.rollCancel;
+        if (rc && this.hitDone && f > m.startup + m.active && sim.frame - inp.rollPressed <= 6 && !this.exhaust && this.st >= rc) {
+          inp.rollPressed = -99; this.startRoll(inp, dx, dz); sim.emit({ t: 'windStep', i: this.idx }); break;
+        }
         if (f >= m.total) { this.state = 'idle'; this.f = 0; this.move = null; this.idleF = 0; }
         break;
       }
@@ -163,9 +197,15 @@ export class Fighter {
         if (this.f >= 20) { this.state = 'idle'; this.f = 0; this.idleF = 0; }
         break;
       case 'roll': {
-        const p = clamp(this.f / 20, 0, 1), sp = 7.2 * Math.pow(1 - p, 0.6);
+        const R = this.S.roll, p = clamp(this.f / (R.dur * 0.77), 0, 1), sp = R.speed * Math.pow(1 - p, 0.6);
         this.x += this.rollDir[0] * sp * DT; this.z += this.rollDir[1] * sp * DT;
-        if (this.f >= 26) { this.state = 'idle'; this.f = 0; this.idleF = 0; }
+        // 바람 선풍: 구르는 도중 아무 베기 → 회전베기
+        const ra = this.S.traits.rollAtk;
+        if (ra && this.f >= ra[0] && this.f <= ra[1]) {
+          const b = this.takeBuf(inp, 8);
+          if (b) { this.yaw = tYaw; this.startMove('gale'); this.swipeAng = b.a || 0; sim.emit({ t: 'gale', i: this.idx }); break; }
+        }
+        if (this.f >= R.dur) { this.state = 'idle'; this.f = 0; this.idleF = 0; }
         break;
       }
     }
@@ -177,7 +217,7 @@ export class Fighter {
     const mag = Math.hypot(mx, my);
     if (mag < 0.18) { this.wk = 1; return; }
     if (mag > 1) { mx /= mag; my /= mag; }
-    const g = this.guard, fs = g ? 1.2 : my > 0 ? 3 : 2.4, ss = g ? 1.2 : 2.7;
+    const w = this.S.walk, g = this.guard, fs = (g ? 1.2 : my > 0 ? 3 : 2.4) * w, ss = (g ? 1.2 : 2.7) * w;
     let rvx = this.x - op.x, rvz = this.z - op.z;
     const nd = Math.max(0.75, dist - my * fs * DT);
     rvx += -dz * mx * ss * DT; rvz += dx * mx * ss * DT;
@@ -190,8 +230,11 @@ export class Fighter {
     let nx = this.x - A.x, nz = this.z - A.z;
     const d = Math.hypot(nx, nz) || 1; nx /= d; nz /= d;
     const air = this.state === 'launched';
-    let dmg = m.dmg * (counter ? 1.25 : 1);
-    if (A.chainN >= 2) dmg *= Math.max(0.5, 1 - 0.15 * (A.chainN - 1)); // 흐름 연계 3타째부터 보정
+    const AS = A.S;
+    let dmg = m.dmg * (counter ? AS.counterMul : 1) * this.S.taken;
+    if (A.fx === 'blaze') dmg *= 1.4; else if (A.fx === 'jf') dmg *= 1.3; else if (A.fx === 'iai') dmg *= 1.2;
+    if (A.chainN >= AS.scaleFrom && A.fx !== 'jf') dmg *= Math.max(0.5, 1 - 0.15 * (A.chainN - AS.scaleFrom + 1)); // 흐름 연계 보정 (기본 3타째부터)
+    this.iaiF = 0; this.iaiReady = false;
     if (air) { this.juggle++; dmg *= Math.max(0.3, 1 - 0.15 * this.juggle); } // 공중 콤보 보정
     this.hp = Math.max(0, this.hp - dmg);
     this.guard = false; this.crouch = false; this.move = null;
@@ -206,7 +249,7 @@ export class Fighter {
       this.state = 'launched'; this.f = 0; this.y = 0.02; this.vy = this.hp <= 0 ? 3.6 : 3.3; this.juggle = 3;
       this.vx = nx * 4.2; this.vz = nz * 4.2; this.launchUid = ++this.sim.uid; this.yaw = Math.atan2(-nx, -nz);
     } else {
-      this.state = 'hitstun'; this.f = 0; this.stun = m.hitstun + (counter ? 8 : 0); this.hitLevel = m.level;
+      this.state = 'hitstun'; this.f = 0; this.stun = m.hitstun + (counter ? 8 : 0) + (A.fx === 'jf' ? 6 : 0); this.hitLevel = m.level;
       this.vx = nx * m.push; this.vz = nz * m.push; this.yaw = turnTo(this.yaw, Math.atan2(-nx, -nz), 0.6);
     }
     return dmg;
@@ -217,7 +260,8 @@ export class Fighter {
     const c = this.crouch;
     this.state = 'blockstun'; this.f = 0; this.stun = m.blockstun; this.crouch = c;
     this.vx = nx * m.bpush; this.vz = nz * m.bpush;
-    this.useSt(m.chip, 40);
+    this.useSt(m.chip, 40); this.iaiF = 0; this.iaiReady = false;
+    if (A.fx === 'blaze') this.st = 0; // 작열: 막아도 가드 브레이크
     if (this.st <= 0) { this.state = 'hitstun'; this.stun = 48; this.hitLevel = 'stagger'; this.crouch = false; return true; } // 가드 브레이크
     return false;
   }

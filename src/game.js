@@ -5,7 +5,6 @@ import { AI } from './core/ai.js';
 import { Sound } from './audio/sound.js';
 import { show } from './ui/hud.js';
 import { CHARACTERS } from './data/characters.js';
-import { MV } from './core/moves.js';
 import { OUGI } from './core/sim.js';
 import { Lockstep } from './net/lockstep.js';
 import { OugiUI } from './ui/ougi.js';
@@ -211,8 +210,36 @@ export class Game {
           if (pl) hud.call(hud.side(e.d), '슈퍼아머', 'gold');
           break;
         }
+        // ---- 캐릭터 고유 시스템 ----
+        case 'heat': P.elementBurst(v.center(e.i), 'fire', 4 + e.n * 3); if (e.n >= 3) { Sound.play('el_fire'); if (pl) hud.call(hud.side(e.i), '불씨 3 · 작열 준비', 'gold'); } break;
+        case 'blaze': { // 작열: 몸에서 불길이 터짐
+          const c = v.center(e.i); P.elementBurst(c, 'fire', 26); FX.ring(c, [1, 0.45, 0.1], 2.0); v.hitFlash(e.i, 10, [1, 0.5, 0.1]);
+          Sound.play('el_fire'); Sound.play('whoosh', { power: 16 }); shake(0.08); if (pl) hud.call(hud.side(e.i), '작열!', 'red');
+          break;
+        }
+        case 'iaiReady': Sound.play('sheath'); P.elementBurst(v.center(e.i), 'thunder', 5); break;
+        case 'iai': { // 발도: 칼을 뽑는 순간 번쩍
+          const c = v.center(e.i); Sound.play('draw'); Sound.play('el_thunder'); v.elfx.crackle(c); FX.ring(c, [0.6, 0.85, 1], 1.4); v.hitFlash(e.i, 6, [0.6, 0.85, 1]);
+          if (pl) { hud.call(hud.side(e.i), e.move === 'iai_flash' ? '발도 일섬!' : '발도!', 'gold'); hud.speedLines(); }
+          break;
+        }
+        case 'jf': { // 뇌속 연계: 저스트 타이밍 보상
+          const c = v.center(e.i); v.elfx.crackle(c); v.elfx.crackle(c); P.elementBurst(c, 'thunder', 12); v.hitFlash(e.i, 6, [0.6, 0.85, 1]);
+          Sound.play('el_thunder'); hud.flash(0.18); if (pl) hud.call(hud.side(e.i), '뇌속!', 'gold');
+          break;
+        }
+        case 'mirror': { // 물거울: 흘리고 반격
+          const hp = this.sparkPos(e.a, e.d, e.limb);
+          P.sparks(hp, 'parry'); P.elementBurst(hp, 'water', 18); FX.ring(hp, [0.4, 0.75, 1], 2.0); FX.ring([this.sim.f[e.d].x, 0, this.sim.f[e.d].z], [0.4, 0.75, 1], 1.8, true);
+          v.hitFlash(e.d, 8, [0.5, 0.8, 1]); Sound.play('parry'); Sound.play('el_water');
+          this.slow = Math.max(this.slow, 0.4); shake(0.1); cam.punch = Math.max(cam.punch, 5); hud.flash(0.25);
+          if (pl) hud.call(hud.side(e.d), '물거울!', 'gold');
+          break;
+        }
+        case 'gale': { const c = v.center(e.i); P.elementBurst(c, 'wind', 14); FX.ring([c[0], 0.2, c[2]], [0.5, 1, 0.7], 1.6, true); Sound.play('el_wind'); if (pl) hud.call(hud.side(e.i), '선풍!', 'gold'); break; }
+        case 'windStep': P.elementBurst(v.center(e.i), 'wind', 6); Sound.play('whoosh', { power: 6 }); break;
         case 'land': P.sparks([e.x, 0, e.z], 'dust'); FX.ring([e.x, 0, e.z], [0.8, 0.7, 0.6], 1.0, true); Sound.play('land'); shake(0.08); break;
-        case 'whoosh': Sound.play('whoosh', { power: MV[e.move] ? MV[e.move].dmg : 8 }); break;
+        case 'whoosh': { const m = this.sim.f[e.i].mv[e.move]; Sound.play('whoosh', { power: m ? m.dmg : 8 }); break; }
         case 'roll': Sound.play('roll'); break;
         case 'round':
           v.resetRound(this.sim);

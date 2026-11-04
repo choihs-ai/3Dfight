@@ -16,6 +16,7 @@ export const CLIP_CUTS = {
   inward: { clip: 'inward', t0: 0.75, hit: 1.18, t1: 1.75 },
   kickslash: { clip: 'kick', t0: 0.05, hit: 0.32, t1: 0.75 },
   overhead: { clip: 'casting', t0: 1.95, hit: 2.33, t1: 2.85 }, // 머리 위로 들었다 정면 바닥까지 수직 내려찍기
+  mirror: { clip: 'guard', t0: 0.0, hit: 0.18, t1: 0.45 }, // 물거울: 칼을 세워 받는 자세 유지
   // 한손검 (방패 팩, 왼팔은 칼집 쥔 자세로 교체)
   ss_slash: { clip: 'ss_slash', t0: 0.2, hit: 0.56, t1: 1.1 },
   ss_low: { clip: 'ss_slash2', t0: 0.55, hit: 0.88, t1: 1.3 },
@@ -38,6 +39,9 @@ const BASE = {
   slash_h: { L: ['slash', 'kickslash'], R: ['slash3', 'slash4'] },
   spin: { L: ['spinA'], R: ['slash4'] },
   slash_low: ['slash5'], slash_down: ['overhead'], slash_up: ['attack'], thrust: ['kick2'], sweep: ['slide'], helm: ['jump'],
+  // 캐릭터 전용 기술
+  blaze_rush: { L: ['spinA'], R: ['slash3'] }, mirror: ['mirror'], mirror_cut: { L: ['spinA'], R: ['slash4'] },
+  iai_flash: ['inward'], raiko: ['stab', 'ss_quick'], gale: { L: ['spinA'], R: ['spinB'] },
 };
 export const STYLES = {
   // 불: 양손 대검식 — 크게 내려치는 힘 위주

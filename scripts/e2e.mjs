@@ -36,15 +36,17 @@ for (const [name, vp] of [['landscape', { width: 844, height: 390 }], ['portrait
   await page.click('[data-d="practice"]'); // 연습 인형(가만히 있음)으로 조작 확인
   await page.click('#startBtn');
   await page.screenshot({ path: join(outDir, `charsel-${name}.png`) });
-  await page.click('#cards .card:nth-child(3)');
+  await page.click('#cards .card:nth-child(3)'); // 번개 라이카
+  const info = await page.evaluate(() => document.querySelector('#charInfo').textContent);
+  check(info.includes('발도') && info.includes('뇌속'), `${name}: 캐릭터 선택에 고유 시스템 설명`);
   await page.click('#fightBtn');
   await page.evaluate(() => { window.__G.freeze = true; window.__step(90); });
-  // 베기 패드 조작: 탭 = 찌르기, 아래로 긋기 = 내려베기
+  // 베기 패드 조작: 탭 = 찌르기(번개는 가만히 서 있으면 발도 → 발도 일섬), 아래로 긋기 = 내려베기
   const pad = await page.locator('#slashPad').boundingBox();
   const cx = pad.x + pad.width / 2, cy = pad.y + pad.height / 2;
   const moveAfter = async (fn) => { await fn(); await page.evaluate(() => window.__step(2)); const m = await page.evaluate(() => window.__F[0].move?.id); await page.evaluate(() => window.__step(60)); return m; };
   const tapMv = await moveAfter(async () => { await page.mouse.move(cx, cy); await page.mouse.down(); await page.mouse.up(); });
-  check(tapMv === 'stab', `${name}: 패드 탭 → 찌르기 (${tapMv})`);
+  check(tapMv === 'iai_flash', `${name}: 발도 자세에서 패드 탭 → 발도 일섬 (${tapMv})`);
   const downMv = await moveAfter(async () => { await page.mouse.move(cx, cy - 30); await page.mouse.down(); await page.mouse.move(cx, cy + 30, { steps: 4 }); await page.mouse.up(); });
   check(downMv === 'slash_down', `${name}: 아래로 긋기 → 내려베기 (${downMv})`);
   const hMv = await moveAfter(async () => { await page.mouse.move(cx + 35, cy); await page.mouse.down(); await page.mouse.move(cx - 35, cy, { steps: 4 }); await page.mouse.up(); });
@@ -81,7 +83,7 @@ for (const lv of ['easy', 'normal', 'hard']) {
   await page.waitForFunction(() => window.__game.view.modelState !== 'loading');
   await page.click('[data-d="practice"]'); await page.click('#startBtn'); await page.click('#fightBtn');
   await page.evaluate(() => { window.__G.freeze = true; window.__step(90); const s = window.__G.sim; s.f[0].reset(0, -0.8, 0); s.f[1].reset(0, 0.8, Math.PI); s.f[0].ki = 100; window.__step(2); });
-  check(await page.isVisible('#ougiBtn'), '오의 버튼 표시');
+  check(await page.waitForSelector('#ougiBtn:not(.hide)', { state: 'visible', timeout: 25000 }).then(() => true, () => false), '오의 버튼 표시');
   await page.click('#ougiBtn', { force: true }); // 깜빡이는 애니메이션이 있어서 강제 클릭
   await page.evaluate(() => window.__step(40));
   const cine = await page.evaluate(() => !!window.__G.sim.cine && !document.querySelector('#ougiLayer').classList.contains('hide'));

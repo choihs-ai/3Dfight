@@ -224,6 +224,8 @@ export class SwordsmanRig {
           const D = this.dur('withdraw') - 0.02, t = Math.max(0, D - (sim.phaseT / 55) * D);
           return { key: 'draw', L: [['withdraw', t, 1]], sheathed: t > 1.0, fade: 8 };
         }
+        // 번개 발도 자세: 칼을 칼집에 넣고 손잡이를 쥔 채 기다림
+        if (F.iaiReady) return { key: 'iai', L: [['withdraw', Math.min(1.35, this.dur('withdraw') - 0.05), 1]], sheathed: true, fade: 10 };
         if (F.guard) return { key: F.crouch ? 'crouch' : 'guard', L: [[F.crouch ? 'crouch' : 'guard', this.loopT % this.dur(F.crouch ? 'crouch' : 'guard'), 1]] };
         const aF = this.walkF, aS = this.walkS, tot = Math.min(1, Math.abs(aF) + Math.abs(aS));
         // 오래 서 있으면 대기 동작 (칼 고쳐 잡기 등) 한 번

@@ -8,6 +8,7 @@ export class Hud {
   constructor() {
     this.hp = [$('#hp0'), $('#hp1')]; this.lag = [$('#lag0'), $('#lag1')]; this.st = [$('#st0'), $('#st1')];
     this.stb = [$('#stb0'), $('#stb1')]; this.hpb = [$('#hpb0'), $('#hpb1')];
+    this.tr = [$('#tr0'), $('#tr1')]; this.trS = ['', ''];
     this.ki = [$('#ki0'), $('#ki1')]; this.kib = [$('#kib0'), $('#kib1')]; this.ougiBtn = $('#ougiBtn'); this.me = 0;
     this.timer = $('#timer'); this.flashEl = $('#flash'); this.flashV = 0; this.lastT = '';
   }
@@ -60,6 +61,14 @@ export class Hud {
       this.hpb[k].classList.toggle('low', f.hp < 30);
       this.ki[k].style.transform = `scaleX(${(f.ki / 100).toFixed(3)})`;
       this.kib[k].classList.toggle('full', f.ki >= 100);
+      // 캐릭터 고유 표시: 불씨(불) · 발도(번개) · 물거울(물) · 선풍(바람)
+      const T = f.S.traits;
+      let h = '';
+      if (T.heat) h = '<span class="pip' + (f.heat > 0 ? ' on' : '') + '"></span><span class="pip' + (f.heat > 1 ? ' on' : '') + '"></span><span class="pip' + (f.heat > 2 ? ' on' : '') + '"></span>' + (f.heat >= T.heat ? ' 작열' : '');
+      else if (T.iai && f.iaiReady) h = '<span class="tag th">⚡ 발도</span>';
+      else if (T.mirror && f.state === 'attack' && f.move && f.move.counter) h = '<span class="tag wa">🌊 물거울</span>';
+      else if (T.rollAtk && f.state === 'roll') h = '<span class="tag wi">🍃 선풍</span>';
+      if (h !== this.trS[k]) { this.tr[k].innerHTML = h; this.trS[k] = h; this.tr[k].classList.toggle('full', !!(T.heat && f.heat >= T.heat)); }
     }
     // 오의 버튼: 내 게이지가 꽉 차고 서 있을 때만
     const me = sim.f[this.me], can = me.ki >= 100 && sim.phase === 'fight' && !sim.cine;

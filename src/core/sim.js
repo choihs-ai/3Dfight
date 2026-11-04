@@ -5,7 +5,7 @@
 import { DT, MAXHP, ARENA_R, seeded } from './util.js';
 import { Fighter } from './fighter.js';
 import { tryHit, applyHit } from './combat.js';
-import { MV } from './moves.js';
+import { movesOf } from './moves.js';
 
 const newInputState = () => ({ mx: 0, my: 0, guard: false, guardPressed: false, rollPressed: -99, ougiPressed: -99, score: -1, buf: [] });
 const EMPTY = () => newInputState();
@@ -80,7 +80,7 @@ export class Sim {
     return true;
   }
 
-  // 캐릭터 원소 (오의 마무리 위치에만 영향 — 온라인에서는 양쪽이 같은 값을 씀)
+  // 캐릭터 원소 = 전투 스타일 (기술표·능력치·고유 시스템, 오의 마무리) — 온라인에서는 양쪽이 같은 값을 씀
   setStyles(styles) { styles.forEach((st, i) => { this.f[i].style = st; }); }
 
   // ---------- 오의 시네마틱 ----------
@@ -140,7 +140,7 @@ export class Sim {
     for (const k of ['frame', 'uid', 'hitstop', 'round', 'timer', 'phase', 'phaseT', 'winner', 'roundSeq']) this[k] = s[k];
     this.wins = s.wins.slice(); this.rng.setState(s.rng); this.cine = s.cine ? { ...s.cine } : null;
     this.ins = JSON.parse(JSON.stringify(s.ins));
-    s.f.forEach((o, i) => { const F = this.f[i]; Object.assign(F, JSON.parse(JSON.stringify(o))); F.move = o.move ? MV[o.move] : null; F.sim = this; });
+    s.f.forEach((o, i) => { const F = this.f[i]; Object.assign(F, JSON.parse(JSON.stringify(o))); F.move = o.move ? movesOf(o.style)[o.move] : null; F.sim = this; });
   }
   // 상태 지문 (두 기기가 같은 상태인지 비교)
   hash() {

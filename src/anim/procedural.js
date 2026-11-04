@@ -15,9 +15,9 @@ export const BLADE = { base: 0.12, tip: 1.0 }; // 손목 기준 칼날 시작/�
 
 // 기술 키프레임 테이블 (프레임 수는 core MV에서)
 const KF = {};
-for (const id in MV) KF[id] = [[0, null], ...MOVE_KEYS[id].map(([f, p]) => [f, full(p)]), [MV[id].total, STANCE]];
+for (const id in MV) if (MOVE_KEYS[id]) KF[id] = [[0, null], ...MOVE_KEYS[id].map(([f, p]) => [f, full(p)]), [MV[id].total, STANCE]];
 function evalMove(id, f, snap, out) {
-  const ks = KF[id];
+  const ks = KF[id] || KF[MV[id] && MV[id].anim] || KF.stab;
   let i = 0;
   while (i < ks.length - 2 && f >= ks[i + 1][0]) i++;
   const f0 = ks[i][0], f1 = ks[i + 1][0];

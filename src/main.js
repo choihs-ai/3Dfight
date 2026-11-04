@@ -53,13 +53,20 @@ $('#stageBtn').addEventListener('click', () => { stageI = (stageI + 1) % STAGE_I
 let movesFrom = '#title';
 // 캐릭터 선택
 let pick = 0;
+const traitHtml = (c) => `<div class="ti-h" style="color:var(--el)">${c.icon} ${c.name} — ${c.style}</div>` + c.combat.traits.map(([k, d]) => `<div class="it"><span class="k">${k}</span><span class="d">${d}</span></div>`).join('');
+// 기술표: 캐릭터별 고유 시스템
+const fillMovesChars = () => { $('#movesChars').innerHTML = CHARACTERS.map((c) => `<div class="mvc" style="--c2:${c.colors.accent}">${traitHtml(c)}</div>`).join(''); };
 function renderCards() {
   $('#cards').innerHTML = CHARACTERS.map((c, i) => {
     const hex = (v) => '#' + v.map((x) => Math.round(Math.min(1, x) * 255).toString(16).padStart(2, '0')).join('');
     return `<div class="card${i === pick ? ' sel' : ''}" data-i="${i}" style="--c1:${c.colors.gi};--c2:${hex(c.trail[1])}">
       ${i === pick ? '<span class="tag2">나</span>' : ''}<div class="ic">${c.icon}</div><div class="el">${c.element} 원소</div>
-      <div class="nm">${c.name}</div><div class="st">${c.style}</div><div class="ds">${c.desc}</div></div>`;
+      <div class="nm">${c.name}</div><div class="st">${c.style} · ${c.combat.type}</div>
+      <div class="diff">난이도 ${'★'.repeat(c.combat.diff)}${'☆'.repeat(4 - c.combat.diff)}</div>
+      <div class="stats">${['공격', '맷집', '속도', '기동'].map((n, k) => `<div class="sr"><span>${n}</span><i style="--v:${c.combat.stats[k] / 5}"></i></div>`).join('')}</div>
+      <div class="ds">${c.desc}</div></div>`;
   }).join('');
+  $('#charInfo').innerHTML = traitHtml(CHARACTERS[pick]);
   document.querySelectorAll('#cards .card').forEach((el) => el.addEventListener('click', () => { pick = +el.dataset.i; Sound.muted = false; Sound.play('ui'); Sound.muted = game.mode === 'demo'; renderCards(); }));
 }
 $('#startBtn').addEventListener('click', () => { Sound.init(); lobby = null; renderCards(); $('#fightBtn').textContent = '대전 시작'; $('#fightBtn').disabled = false; show('#title', false); show('#charSel', true); });
@@ -135,11 +142,11 @@ function netClosed() {
     setTimeout(() => { show('#charSel', false); show('#result', false); game.ls = null; game.startDemo(); }, 1800);
   }
 }
-$('#movesBtn').addEventListener('click', () => { movesFrom = '#title'; show('#title', false); show('#moves', true); });
+$('#movesBtn').addEventListener('click', () => { fillMovesChars(); movesFrom = '#title'; show('#title', false); show('#moves', true); });
 $('#movesClose').addEventListener('click', () => { show('#moves', false); show(movesFrom, true); });
 $('#pauseBtn').addEventListener('click', () => game.togglePause());
 $('#resumeBtn').addEventListener('click', () => game.togglePause());
-$('#pMoves').addEventListener('click', () => { movesFrom = '#pause'; show('#pause', false); show('#moves', true); });
+$('#pMoves').addEventListener('click', () => { fillMovesChars(); movesFrom = '#pause'; show('#pause', false); show('#moves', true); });
 $('#pQuit').addEventListener('click', () => { show('#pause', false); game.paused = false; game.startDemo(); });
 $('#againBtn').addEventListener('click', () => {
   if (game.ls && lobby) { game.rematch[game.me] = true; lobby.t.send({ k: 'rematch' }); $('#againBtn').textContent = '상대 기다리는 중…'; game.tryRematch(); return; }
