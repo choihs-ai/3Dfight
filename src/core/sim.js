@@ -1,13 +1,13 @@
 // 대전 시뮬레이션 — 60fps 고정 프레임. 브라우저 없이(Node) 돌아감.
 // step(inputs) 한 번 = 1프레임. inputs[i] = FrameInput | null
 //   FrameInput = { mx, my, guard, gp(가드 누른 순간), roll(회피 누른 순간), btns:[{b:'t'|'h'|'u'|'d'|'l'(긋기), dir:'n'|'f'|'b'|'s', a:긋기 각도}],
-//                  ougi(오의 버튼 누른 순간), score(오의 문양 그리기 점수 0~100, 다 그렸을 때 한 번) }
+//                  ougi(오의 버튼 누른 순간), sk(캐릭터 기술 버튼 누른 순간), score(오의 문양 그리기 점수 0~100, 다 그렸을 때 한 번) }
 import { DT, MAXHP, ARENA_R, seeded } from './util.js';
 import { Fighter } from './fighter.js';
 import { tryHit, applyHit } from './combat.js';
 import { movesOf } from './moves.js';
 
-const newInputState = () => ({ mx: 0, my: 0, guard: false, guardPressed: false, rollPressed: -99, ougiPressed: -99, score: -1, buf: [] });
+const newInputState = () => ({ mx: 0, my: 0, guard: false, guardPressed: false, rollPressed: -99, ougiPressed: -99, skillPressed: -99, score: -1, buf: [] });
 const EMPTY = () => newInputState();
 
 // 오의 시네마틱: 문양 그리는 시간(프레임), 그 뒤 연출 시간, 피해량
@@ -51,6 +51,7 @@ export class Sim {
     if (fi.gp) st.guardPressed = true;
     if (fi.roll) st.rollPressed = this.frame;
     if (fi.ougi) st.ougiPressed = this.frame;
+    if (fi.sk) st.skillPressed = this.frame;
     if (fi.score !== undefined && fi.score !== null && fi.score >= 0) st.score = Math.max(0, Math.min(100, Math.round(fi.score)));
     st.mx = fi.mx || 0; st.my = fi.my || 0; st.guard = !!fi.guard;
     if (live && fi.btns) for (const p of fi.btns) { st.buf.push({ b: p.b, dir: p.dir, a: p.a || 0, t: this.frame }); if (st.buf.length > 4) st.buf.shift(); }

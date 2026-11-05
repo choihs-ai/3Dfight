@@ -4,6 +4,7 @@ import { MAXHP } from '../core/util.js';
 const $ = (s) => document.querySelector(s);
 export const show = (id, on) => $(id).classList.toggle('hide', !on);
 
+const me0 = (sim, i) => sim.f[i];
 export class Hud {
   constructor() {
     this.hp = [$('#hp0'), $('#hp1')]; this.lag = [$('#lag0'), $('#lag1')]; this.st = [$('#st0'), $('#st1')];
@@ -19,6 +20,15 @@ export class Hud {
     const d = document.createElement('div');
     d.className = 'call ' + cls; d.textContent = text; col.appendChild(d);
     setTimeout(() => d.remove(), 900);
+  }
+  // 요령 안내 (몇 초 뒤 사라짐)
+  // 게임 시간(프레임)으로 사라짐 — 모델을 불러오느라 화면이 잠깐 멈춰도 놓치지 않게
+  tip(html, frames = 390) { const el = $('#tip'); el.innerHTML = html; el.classList.remove('hide'); this.tipLeft = frames; this.tipFrame = -1; }
+  tipTick(sim) {
+    if (!this.tipLeft) return;
+    if (this.tipFrame >= 0 && sim.frame !== this.tipFrame) this.tipLeft = Math.max(0, this.tipLeft - Math.max(0, sim.frame - this.tipFrame));
+    this.tipFrame = sim.frame;
+    if (!this.tipLeft || sim.phase !== 'fight') { this.tipLeft = 0; $('#tip').classList.add('hide'); }
   }
   banner(t, cls = '') {
     const b = $('#banner');
@@ -51,7 +61,8 @@ export class Hud {
   update(sim, fx, mode) {
     if (this.flashV > 0) { this.flashEl.style.opacity = this.flashV.toFixed(2); this.flashV = Math.max(0, this.flashV - 0.04); }
     else if (this.flashEl.style.opacity !== '0') this.flashEl.style.opacity = '0';
-    if (mode === 'demo') return;
+    if (mode === 'demo') { if (this.tipLeft) { this.tipLeft = 0; $('#tip').classList.add('hide'); } return; }
+    this.tipTick(sim);
     for (let k = 0; k < 2; k++) {
       const i = k === 0 ? this.me : 1 - this.me, f = sim.f[i];
       this.hp[k].style.transform = `scaleX(${(f.hp / MAXHP).toFixed(4)})`;
@@ -70,6 +81,10 @@ export class Hud {
       else if (T.rollAtk && f.state === 'roll') h = '<span class="tag wi">🍃 선풍</span>';
       if (h !== this.trS[k]) { this.tr[k].innerHTML = h; this.trS[k] = h; this.tr[k].classList.toggle('full', !!(T.heat && f.heat >= T.heat)); }
     }
+    // 기술 버튼: 쓸 수 있으면 빛남 (불 = 불씨 있음, 번개 = 아직 발도 전, 바람 = 스태미나)
+    { const T = me0(sim, this.me), sk = T.S.skill;
+      const rd = sk === 'erupt' ? T.heat > 0 : sk === 'iai' ? !T.iaiReady : sk === 'dash' ? T.st >= 10 && !T.exhaust : !!sk;
+      if (rd !== this.skRd) { this.skRd = rd; $('#skillBtn').classList.toggle('ready', rd); } }
     // 오의 버튼: 내 게이지가 꽉 차고 서 있을 때만
     const me = sim.f[this.me], can = me.ki >= 100 && sim.phase === 'fight' && !sim.cine;
     if (can !== !this.ougiBtn.classList.contains('hide')) this.ougiBtn.classList.toggle('hide', !can);

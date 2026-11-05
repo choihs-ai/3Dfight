@@ -30,6 +30,9 @@ export class Game {
     const hex = (v) => '#' + v.map((x) => Math.round(Math.min(1, x) * 255).toString(16).padStart(2, '0')).join('');
     document.documentElement.style.setProperty('--el', hex(this.chars[0].trail[1]));
     document.querySelector('#p1Name').textContent = this.chars[this.me].name;
+    const sk = this.chars[this.me].combat.skill;
+    document.querySelector('#skillIc').textContent = sk.ic; document.querySelector('#skillNm').textContent = sk.nm;
+    document.documentElement.style.setProperty('--el', hex(this.chars[this.me].trail[1]));
   }
   newSim(mode) {
     const seed = (Math.random() * 2 ** 31) | 0;
@@ -217,6 +220,9 @@ export class Game {
           Sound.play('el_fire'); Sound.play('whoosh', { power: 16 }); shake(0.08); if (pl) hud.call(hud.side(e.i), '작열!', 'red');
           break;
         }
+        case 'erupt': { const c = v.center(e.i); P.elementBurst(c, 'fire', 22); FX.ring([c[0], 0.1, c[2]], [1, 0.5, 0.15], 2.2, true); Sound.play('el_fire'); shake(0.1); if (pl) hud.call(hud.side(e.i), '화염 해방!', 'red'); break; }
+        case 'windDash': { const c = v.center(e.i); P.elementBurst(c, 'wind', 12); Sound.play('el_wind'); if (pl) hud.call(hud.side(e.i), '질풍!', 'gold'); break; }
+        case 'skillFail': if (pl && e.i === this.me) hud.call(0, '불씨가 없어요', 'combo'); break;
         case 'iaiReady': Sound.play('sheath'); P.elementBurst(v.center(e.i), 'thunder', 5); break;
         case 'iai': { // 발도: 칼을 뽑는 순간 번쩍
           const c = v.center(e.i); Sound.play('draw'); Sound.play('el_thunder'); v.elfx.crackle(c); FX.ring(c, [0.6, 0.85, 1], 1.4); v.hitFlash(e.i, 6, [0.6, 0.85, 1]);
@@ -246,7 +252,13 @@ export class Game {
           if (pl) { hud.banner(this.sim.mode === 'practice' ? '연습' : 'ROUND ' + e.round); Sound.play('bell'); setTimeout(() => Sound.play('draw'), 450); }
           hud.pips(this.sim.wins);
           break;
-        case 'fight': if (pl) { hud.banner('FIGHT!', 'fight'); Sound.play('bell'); } break;
+        case 'fight':
+          if (pl) {
+            hud.banner('FIGHT!', 'fight'); Sound.play('bell');
+            // 처음 두 라운드: 내 캐릭터 요령
+            if (this.sim.round <= 2 && this.mode !== 'demo') hud.tip(this.chars[this.me].combat.tip, 400);
+          }
+          break;
         case 'ko':
           if (pl) { hud.banner(e.timeout ? 'TIME' : 'K.O.', 'ko'); Sound.play(e.timeout ? 'bell' : 'ko'); if (e.winner >= 0) setTimeout(() => Sound.play('sheath'), 2100); }
           hud.pips(this.sim.wins);

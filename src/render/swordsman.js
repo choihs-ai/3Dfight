@@ -216,7 +216,7 @@ export class SwordsmanRig {
   dur(n) { return this.clips[n] ? this.clips[n].duration : 1; }
   // 이번 프레임 목표 자세 [ [클립, 시간, 가중치], ... ] 와 전환 키
   target(F, sim) {
-    const s = F.state, f = F.f, st = STYLES[this.ch.id] || STYLES.fire;
+    const s = F.state, f = F.f, st = STYLES[this.ch.id] || STYLES.fire, lc = (k) => (st.loco && st.loco[k] && this.clips[st.loco[k]] ? st.loco[k] : k);
     switch (s) {
       case 'idle': {
         // 라운드 시작: 허리 칼집에서 칼을 뽑음 (칼 넣기 모션을 거꾸로)
@@ -226,7 +226,7 @@ export class SwordsmanRig {
         }
         // 번개 발도 자세: 칼을 칼집에 넣고 손잡이를 쥔 채 기다림
         if (F.iaiReady) return { key: 'iai', L: [['withdraw', Math.min(1.35, this.dur('withdraw') - 0.05), 1]], sheathed: true, fade: 10 };
-        if (F.guard) return { key: F.crouch ? 'crouch' : 'guard', L: [[F.crouch ? 'crouch' : 'guard', this.loopT % this.dur(F.crouch ? 'crouch' : 'guard'), 1]] };
+        if (F.guard) { const g = lc(F.crouch ? 'crouch' : 'guard'); return { key: g, L: [[g, this.loopT % this.dur(g), 1]] }; }
         const aF = this.walkF, aS = this.walkS, tot = Math.min(1, Math.abs(aF) + Math.abs(aS));
         // 오래 서 있으면 대기 동작 (칼 고쳐 잡기 등) 한 번
         if (tot < 0.05 && F.idleF > 200) {
@@ -239,8 +239,9 @@ export class SwordsmanRig {
           const lt = (n) => this.locoT % this.dur(n);
           // 멀리서 앞으로 다가갈 때는 달리기
           const op = sim && sim.f[1 - F.idx], far = op && Math.hypot(op.x - F.x, op.z - F.z) > 3.4;
-          if (aF > 0) L.push([far ? 'run' : 'walk_f', lt(far ? 'run' : 'walk_f'), aF * k]); else if (aF < 0) L.push(['walk_b', lt('walk_b'), -aF * k]);
-          if (aS > 0) L.push(['strafe_r', lt('strafe_r'), aS * k]); else if (aS < 0) L.push(['strafe_l', lt('strafe_l'), -aS * k]);
+          const fw = lc(far ? 'run' : 'walk_f'), bw = lc('walk_b'), sr = lc('strafe_r'), sl = lc('strafe_l');
+          if (aF > 0) L.push([fw, lt(fw), aF * k]); else if (aF < 0) L.push([bw, lt(bw), -aF * k]);
+          if (aS > 0) L.push([sr, lt(sr), aS * k]); else if (aS < 0) L.push([sl, lt(sl), -aS * k]);
         }
         return { key: 'loco', L, fade: 6 };
       }

@@ -5,7 +5,8 @@ import { PlayerInput } from './input/player.js';
 import { Game } from './game.js';
 import { Sound } from './audio/sound.js';
 import { AIL } from './core/ai.js';
-import { MV } from './core/moves.js';
+import { MV, movesOf } from './core/moves.js';
+import { styleOf } from './core/styles.js';
 import { CHARACTERS, CHAR_BY_ID } from './data/characters.js';
 import { hostRoom, joinRoom } from './net/transport.js';
 
@@ -55,7 +56,19 @@ let movesFrom = '#title';
 let pick = 0;
 const traitHtml = (c) => `<div class="ti-h" style="color:var(--el)">${c.icon} ${c.name} — ${c.style}</div>` + c.combat.traits.map(([k, d]) => `<div class="it"><span class="k">${k}</span><span class="d">${d}</span></div>`).join('');
 // 기술표: 캐릭터별 고유 시스템
-const fillMovesChars = () => { $('#movesChars').innerHTML = CHARACTERS.map((c) => `<div class="mvc" style="--c2:${c.colors.accent}">${traitHtml(c)}</div>`).join(''); };
+const INP = [['t', '탭'], ['h', '← / →'], ['u', '↑'], ['d', '↓'], ['l', '↙ ↘'], ['ft', '앞 + 탭'], ['fh', '앞 + 가로'], ['bt', '뒤 + 탭'], ['bl', '뒤 + ↙↘'], ['sh', '옆 + 가로'], ['bd', '뒤 + ↓']];
+const LV = { high: ['h', '상단'], mid: ['m', '중단'], low: ['l', '하단'] };
+const moveTable = (c) => {
+  const S = styleOf(c.id), T = movesOf(c.id), seen = new Set(), rows = [];
+  const row = (k, m, extra = '') => rows.push(`<tr><td class="k">${k}</td><td class="n">${m.noHit ? '' : `<span class="lv ${LV[m.level][0]}">${LV[m.level][1]}</span>`}${m.name}</td><td class="d">${m.desc || ''}${extra}</td></tr>`);
+  for (const [k, lab] of INP) { const id = S.cmd[k]; if (!id || seen.has(id)) continue; seen.add(id); row(lab, T[id]); }
+  // 연속기 (탭 → 가로 → 가로 …)
+  let id = S.cmd.t, lab = '탭', n = 0; const chain = [];
+  while (T[id] && T[id].chain && T[id].chain.h && n++ < 5) { id = T[id].chain.h; chain.push(T[id].name); lab += ' → 가로'; }
+  if (chain.length) row(lab, T[id], ' (' + chain.join(' → ') + ')');
+  return `<table class="mvtab">${rows.join('')}</table>`;
+};
+const fillMovesChars = () => { $('#movesChars').innerHTML = CHARACTERS.map((c) => `<div class="mvc" style="--c2:${c.colors.accent}">${traitHtml(c)}${moveTable(c)}</div>`).join(''); };
 function renderCards() {
   $('#cards').innerHTML = CHARACTERS.map((c, i) => {
     const hex = (v) => '#' + v.map((x) => Math.round(Math.min(1, x) * 255).toString(16).padStart(2, '0')).join('');

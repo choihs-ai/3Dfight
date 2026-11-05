@@ -12,6 +12,8 @@ export function tryHit(sim, A, D) {
   if (dist > 0.55 && Math.acos(clamp((dx * fx + dz * fz) / dist, -1, 1)) > m.arc) return null; // 옆걸음으로 피하기
   if (air && D.y > 2.8) return null;
   if (!air && m.level === 'high' && D.isCrouching()) return null; // 앉으면 상단 회피
+  // 뛰어오른 기술은 하단을 피함
+  if (!air && m.level === 'low' && D.state === 'attack' && D.move && D.move.air && D.f >= D.move.air[0] && D.f <= D.move.air[1]) return null;
   const counter = D.state === 'attack' && D.move && D.f < D.move.startup;
   // 물거울 자세: 상단·중단은 흘리고 반격, 하단에는 뚫려서 카운터로 맞음
   const dm = D.state === 'attack' && D.move;

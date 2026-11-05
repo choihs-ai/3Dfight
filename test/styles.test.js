@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Sim, AI, MAXHP, STYLE_DEF } from '../src/core/index.js';
-import { movesOf } from '../src/core/moves.js';
+import { movesOf, resolveMove } from '../src/core/moves.js';
 
 const inp = (o = {}) => ({ mx: 0, my: 0, guard: false, gp: false, roll: false, btns: [], ...o });
 const press = (b, dir = 'n', o = {}) => inp({ btns: [{ b, dir }], ...o });
@@ -22,12 +22,44 @@ function run(s, n, a = () => inp(), b = () => inp()) {
 }
 const first = (ev, t) => ev.find((e) => e.t === t);
 
-test('스타일마다 기술표가 다름: 같은 찌르기도 번개가 가장 빠르고 불이 가장 느림', () => {
-  const st = (id) => movesOf(id).stab.startup;
-  assert.ok(st('thunder') < st('water') && st('water') < st('fire'));
-  assert.ok(movesOf('fire').slash_down.dmg > movesOf('water').slash_down.dmg);
-  assert.ok(movesOf('fire').slash_down.armor, '불 내려베기는 슈퍼아머');
-  assert.ok(!movesOf('water').slash_down.armor);
+test('캐릭터마다 기술표가 다름: 같은 입력 → 다른 기술 (번개 찌르기가 가장 빠르고 불이 가장 느림)', () => {
+  const S = ['fire', 'water', 'thunder', 'wind'];
+  for (const inp of [['t', 'n'], ['h', 'n'], ['d', 'n'], ['l', 'n'], ['t', 'f'], ['l', 'b'], ['h', 's'], ['d', 'b']]) {
+    const ids = S.map((st) => resolveMove(inp[0], inp[1], st));
+    assert.equal(new Set(ids).size, 4, '입력 ' + inp.join('') + ' → ' + ids.join(','));
+  }
+  const st = (s, b) => movesOf(s)[resolveMove(b, 'n', s)].startup;
+  assert.ok(st('thunder', 't') < st('water', 't') && st('water', 't') < st('fire', 't'));
+  assert.ok(movesOf('fire').f_down.dmg > movesOf('water').w_down.dmg);
+  assert.ok(movesOf('fire').f_down.armor, '불 내려찍기는 슈퍼아머');
+  assert.ok(movesOf('thunder').t_heaven.air && movesOf('wind').n_down.air, '도약 기술은 하단 회피');
+});
+
+test('기술 버튼: 캐릭터마다 다른 기술 (불 해방 · 물 물거울 · 번개 발도 · 바람 질풍 걸음)', () => {
+  let s = setup(['fire', 'water']);
+  run(s, 3, (i) => inp({ sk: i === 0 }));
+  assert.equal(s.f[0].state, 'idle', '불씨 없으면 해방 안 됨');
+  s.f[0].heat = 3;
+  let ev = run(s, 60, (i) => inp({ sk: i === 0 }), () => inp({ guard: true }));
+  assert.ok(first(ev, 'block')?.brk, '불씨 3개 해방은 막아도 가드 브레이크');
+  s = setup(['water', 'fire']);
+  run(s, 2, (i) => inp({ sk: i === 0 }));
+  assert.equal(s.f[0].move?.id, 'mirror');
+  s = setup(['thunder', 'fire'], 3.2);
+  ev = run(s, 2, (i) => inp({ sk: i === 0 }));
+  assert.ok(s.f[0].iaiReady && first(ev, 'iaiReady'), '바로 발도 자세');
+  s = setup(['wind', 'fire'], 2.0);
+  const a0 = Math.atan2(s.f[0].x - s.f[1].x, s.f[0].z - s.f[1].z);
+  ev = run(s, 30, (i) => inp({ sk: i === 0, mx: i === 0 ? 1 : 0 }));
+  const a1 = Math.atan2(s.f[0].x - s.f[1].x, s.f[0].z - s.f[1].z);
+  assert.ok(first(ev, 'windDash') && Math.abs(a1 - a0) > 0.6, '상대 주위를 크게 돎');
+});
+
+test('도약 기술: 뛰어오른 동안 하단이 헛침', () => {
+  const s = setup(['thunder', 'fire'], 1.4);
+  const m = movesOf('thunder').t_heaven;
+  const ev = run(s, 60, (i) => (i === 0 ? press('d', 'b') : inp()), (i) => (i === m.air[0] + 2 ? press('l') : inp()));
+  assert.ok(!ev.some((e) => e.t === 'hit' && e.a === 1), '하단이 안 맞음');
 });
 
 test('불 열기: 불씨 3개 → 내려베기가 작열(피해 1.4배) + 막아도 가드 브레이크', () => {
@@ -36,7 +68,7 @@ test('불 열기: 불씨 3개 → 내려베기가 작열(피해 1.4배) + 막아
   let ev = run(s, 50, (i) => (i === 0 ? press('d') : inp()));
   assert.ok(first(ev, 'blaze'), '작열 발동');
   const h = first(ev, 'hit');
-  assert.ok(Math.abs(h.dealt - movesOf('fire').slash_down.dmg * 1.4) < 1e-9, '피해 1.4배');
+  assert.ok(Math.abs(h.dealt - movesOf('fire').f_down.dmg * 1.4) < 1e-9, '피해 1.4배');
   assert.equal(s.f[0].heat, 0, '불씨 소모');
   s = setup(['fire', 'water']);
   s.f[0].heat = 3;
@@ -145,7 +177,7 @@ test('스타일 능력치: 맷집(받는 피해)과 구르기 비용이 다름',
   assert.ok(STYLE_DEF.wind.roll.stam < STYLE_DEF.fire.roll.stam);
   const s = setup(['fire', 'thunder']);
   run(s, 30, (i) => (i === 0 ? press('t') : inp()));
-  assert.ok(Math.abs(MAXHP - s.f[1].hp - movesOf('fire').stab.dmg * STYLE_DEF.thunder.taken) < 1e-9);
+  assert.ok(Math.abs(MAXHP - s.f[1].hp - movesOf('fire').f_stab.dmg * STYLE_DEF.thunder.taken) < 1e-9);
 });
 
 test('상성 균형: CPU끼리 모든 조합에서 어느 스타일도 압도하지 않음 (보통 난이도)', () => {
@@ -172,7 +204,7 @@ test('스타일 상태 저장/복원: 기술표·불씨·발도가 그대로 이
   run(s, 3, (i) => (i === 0 ? press('d') : inp()));
   const snap = s.serialize(), t = new Sim({ mode: 'match', seed: 9 });
   t.load(snap);
-  assert.equal(t.f[0].move, movesOf('fire').slash_down);
+  assert.equal(t.f[0].move, movesOf('fire').f_down);
   assert.equal(t.f[0].heat, 2);
   for (let i = 0; i < 60; i++) { s.step([inp(), inp()]); t.step([inp(), inp()]); }
   assert.equal(s.hash(), t.hash());

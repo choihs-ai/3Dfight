@@ -1,102 +1,273 @@
 {
-  "_설명": "Mixamo FBX → 게임 클립 이름. 폴더 순서대로 찾음: assets-src/mixamo(Great Sword Pack) → assets-src/extra(단품) → assets-src/shield(Pro Sword and Shield Pack). {file, leftArm:[클립, 초]} = 왼팔 자세를 다른 클립의 그 순간 자세로 고정(방패 든 팔 → 칼집 쥔 팔)",
-  "idle": "great sword idle",
-  "walk_f": "great sword walk",
-  "walk_b": "great sword walk (2)",
-  "strafe_l": "great sword strafe",
-  "strafe_r": "great sword strafe (2)",
-  "run": "great sword run",
-  "guard": "great sword blocking (2)",
-  "crouch": "great sword crouching (3)",
-  "block_hit": "great sword impact",
-  "crouch_block_hit": "great sword impact (4)",
-  "death": "two handed sword death",
-  "power_up": "great sword power up",
-  "draw": "draw a great sword 2",
-  "slash": "great sword slash",
-  "slash3": "great sword slash (3)",
-  "slash4": "great sword slash (4)",
-  "slash5": "great sword slash (5)",
-  "attack": "great sword attack",
-  "kick": "great sword kick",
-  "kick2": "great sword kick (2)",
-  "spin": "great sword high spin attack",
-  "jump_attack": "great sword jump attack",
-  "slide": "great sword slide attack",
-  "stab": "Stabbing 2",
-  "roll": "Stand To Roll",
-  "withdraw": "Withdrawing Sword",
-  "idle2": "great sword idle (2)",
-  "idle3": "great sword idle (3)",
-  "idle4": "great sword idle (4)",
-  "idle5": "great sword idle (5)",
-  "hit_head": "great sword impact (3)",
-  "hit_body": "great sword impact (2)",
-  "hit_low": "great sword impact (5)",
-  "death2": "two handed sword death (2)",
-  "inward": "Stable Sword Inward Slash",
-  "ss_idle": {
-    "file": "sword and shield idle",
-    "leftArm": [
-      "withdraw",
-      1.4
-    ]
-  },
-  "ss_slash": {
-    "file": "sword and shield slash",
-    "leftArm": [
-      "withdraw",
-      1.4
-    ]
-  },
-  "ss_slash2": {
-    "file": "sword and shield slash (2)",
-    "leftArm": [
-      "withdraw",
-      1.4
-    ]
-  },
-  "ss_slash3": {
-    "file": "sword and shield slash (3)",
-    "leftArm": [
-      "withdraw",
-      1.4
-    ]
-  },
-  "ss_slash5": {
-    "file": "sword and shield slash (5)",
-    "leftArm": [
-      "withdraw",
-      1.4
-    ]
-  },
-  "ss_attack2": {
-    "file": "sword and shield attack (2)",
-    "leftArm": [
-      "withdraw",
-      1.4
-    ]
-  },
-  "ss_attack3": {
-    "file": "sword and shield attack (3)",
-    "leftArm": [
-      "withdraw",
-      1.4
-    ]
-  },
-  "ss_attack4": {
-    "file": "sword and shield attack (4)",
-    "leftArm": [
-      "withdraw",
-      1.4
-    ]
-  },
-  "ss_kick": {
-    "file": "sword and shield kick",
-    "leftArm": [
-      "withdraw",
-      1.4
-    ]
-  },
-  "casting": "great sword casting"
+ "_설명": "Mixamo FBX → 게임 클립 이름. 폴더 순서대로 찾음: assets-src/mixamo(Great Sword Pack) → assets-src/extra(단품) → assets-src/shield(Pro Sword and Shield Pack). {file, leftArm:[클립, 초]} = 왼팔 자세를 다른 클립의 그 순간 자세로 고정(방패 든 팔 → 칼집 쥔 팔)",
+ "idle": "great sword idle",
+ "walk_f": "great sword walk",
+ "walk_b": "great sword walk (2)",
+ "strafe_l": "great sword strafe",
+ "strafe_r": "great sword strafe (2)",
+ "run": "great sword run",
+ "guard": "great sword blocking (2)",
+ "crouch": "great sword crouching (3)",
+ "block_hit": "great sword impact",
+ "crouch_block_hit": "great sword impact (4)",
+ "death": "two handed sword death",
+ "power_up": "great sword power up",
+ "draw": "draw a great sword 2",
+ "slash": "great sword slash",
+ "slash3": "great sword slash (3)",
+ "slash4": "great sword slash (4)",
+ "slash5": "great sword slash (5)",
+ "attack": "great sword attack",
+ "kick": "great sword kick",
+ "kick2": "great sword kick (2)",
+ "spin": "great sword high spin attack",
+ "jump_attack": "great sword jump attack",
+ "slide": "great sword slide attack",
+ "stab": "Stabbing 2",
+ "roll": "Stand To Roll",
+ "withdraw": "Withdrawing Sword",
+ "idle2": "great sword idle (2)",
+ "idle3": "great sword idle (3)",
+ "idle4": "great sword idle (4)",
+ "idle5": "great sword idle (5)",
+ "hit_head": "great sword impact (3)",
+ "hit_body": "great sword impact (2)",
+ "hit_low": "great sword impact (5)",
+ "death2": "two handed sword death (2)",
+ "inward": "Stable Sword Inward Slash",
+ "ss_idle": {
+  "file": "sword and shield idle",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_slash": {
+  "file": "sword and shield slash",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_slash2": {
+  "file": "sword and shield slash (2)",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_slash3": {
+  "file": "sword and shield slash (3)",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_slash5": {
+  "file": "sword and shield slash (5)",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_attack2": {
+  "file": "sword and shield attack (2)",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_attack3": {
+  "file": "sword and shield attack (3)",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_attack4": {
+  "file": "sword and shield attack (4)",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_kick": {
+  "file": "sword and shield kick",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "casting": "great sword casting",
+ "gs_crouch1": "great sword crouching",
+ "gs_crouch2": "great sword crouching (2)",
+ "gs_crouch4": "great sword crouching (4)",
+ "gs_crouch5": "great sword crouching (5)",
+ "gs_crouch6": "great sword crouching (6)",
+ "gs_block1": "great sword blocking",
+ "gs_block3": "great sword blocking (3)",
+ "gs_jump": "great sword jump",
+ "gs_jump2": "great sword jump (2)",
+ "gs_spell": "spell cast",
+ "gs_run2": "great sword run (2)",
+ "gs_walk_s3": "great sword strafe (3)",
+ "gs_walk_s4": "great sword strafe (4)",
+ "ss_slash4": {
+  "file": "sword and shield slash (4)",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_attack1": {
+  "file": "sword and shield attack",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_cast": {
+  "file": "sword and shield casting",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_cast2": {
+  "file": "sword and shield casting (2)",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_power": {
+  "file": "sword and shield power up",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_walk_f": {
+  "file": "sword and shield walk",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_walk_b": {
+  "file": "sword and shield walk (2)",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_run": {
+  "file": "sword and shield run",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_strafe1": {
+  "file": "sword and shield strafe",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_strafe2": {
+  "file": "sword and shield strafe (2)",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_strafe3": {
+  "file": "sword and shield strafe (3)",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_strafe4": {
+  "file": "sword and shield strafe (4)",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_crouch_idle": {
+  "file": "sword and shield crouch idle",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_block_idle": {
+  "file": "sword and shield block idle",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_idle2": {
+  "file": "sword and shield idle (2)",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_idle3": {
+  "file": "sword and shield idle (3)",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_idle4": {
+  "file": "sword and shield idle (4)",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_crouching": {
+  "file": "sword and shield crouching",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_crouching2": {
+  "file": "sword and shield crouching (2)",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_crouching3": {
+  "file": "sword and shield crouching (3)",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_jump": {
+  "file": "sword and shield jump",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "ss_jump2": {
+  "file": "sword and shield jump (2)",
+  "leftArm": [
+   "withdraw",
+   1.4
+  ]
+ },
+ "sw_draw1": "draw sword 1",
+ "sw_draw2": "draw sword 2",
+ "sw_sheath1": "sheath sword 1",
+ "sw_sheath2": "sheath sword 2"
 }

@@ -15,7 +15,8 @@ window.convert = async (spec) => {
     if (name.startsWith('_')) continue;
     const file = typeof entry === 'string' ? entry : entry.file;
     if (entry.leftArm) leftArmJobs.push([name, entry.leftArm]);
-    const o = await load(file);
+    let o;
+    try { o = await load(file); } catch (e) { report.push('실패(건너뜀): ' + name + ' ← ' + file + ' : ' + (e.message || e)); continue; }
     if (!skeleton) skeleton = o;
     const a = o.animations[0];
     a.name = name;

@@ -5,26 +5,26 @@
 //   손님(1번)은 자기 상태와 지문이 다르면 방장 상태로 맞춘 뒤 이후 프레임을 다시 계산함
 export const SNAP_EVERY = 180;
 
-// 입력 압축: [mx, my, 비트(guard|gp|roll|ougi), score, btns...]
+// 입력 압축: [mx, my, 비트(guard|gp|roll|ougi|sk), score, btns...]
 const DIRS = 'nfbs', GS = 'thudl';
 export function quantize(fi) {
-  const q = { mx: Math.round((fi.mx || 0) * 100) / 100, my: Math.round((fi.my || 0) * 100) / 100, guard: !!fi.guard, gp: !!fi.gp, roll: !!fi.roll, ougi: !!fi.ougi, btns: [] };
+  const q = { mx: Math.round((fi.mx || 0) * 100) / 100, my: Math.round((fi.my || 0) * 100) / 100, guard: !!fi.guard, gp: !!fi.gp, roll: !!fi.roll, ougi: !!fi.ougi, sk: !!fi.sk, btns: [] };
   if (fi.score !== undefined && fi.score !== null && fi.score >= 0) q.score = Math.round(fi.score);
   for (const b of fi.btns || []) q.btns.push({ b: b.b, dir: b.dir, a: Math.round((b.a || 0) * 100) / 100 });
   return q;
 }
 export function pack(q) {
-  const bits = (q.guard ? 1 : 0) | (q.gp ? 2 : 0) | (q.roll ? 4 : 0) | (q.ougi ? 8 : 0);
+  const bits = (q.guard ? 1 : 0) | (q.gp ? 2 : 0) | (q.roll ? 4 : 0) | (q.ougi ? 8 : 0) | (q.sk ? 16 : 0);
   return [Math.round(q.mx * 100), Math.round(q.my * 100), bits, q.score ?? -1, ...q.btns.map((b) => GS.indexOf(b.b) * 4 + DIRS.indexOf(b.dir) + Math.round(b.a * 100) * 32)];
 }
 export function unpack(a) {
   const [mx, my, bits, score, ...bs] = a;
-  const q = { mx: mx / 100, my: my / 100, guard: !!(bits & 1), gp: !!(bits & 2), roll: !!(bits & 4), ougi: !!(bits & 8), btns: [] };
+  const q = { mx: mx / 100, my: my / 100, guard: !!(bits & 1), gp: !!(bits & 2), roll: !!(bits & 4), ougi: !!(bits & 8), sk: !!(bits & 16), btns: [] };
   if (score >= 0) q.score = score;
   for (const v of bs) { const lo = ((v % 32) + 32) % 32, aa = (v - lo) / 32; q.btns.push({ b: GS[lo >> 2], dir: DIRS[lo & 3], a: aa / 100 }); }
   return q;
 }
-const NEUTRAL = () => ({ mx: 0, my: 0, guard: false, gp: false, roll: false, ougi: false, btns: [] });
+const NEUTRAL = () => ({ mx: 0, my: 0, guard: false, gp: false, roll: false, ougi: false, sk: false, btns: [] });
 
 export class Lockstep {
   // me: 0(방장) | 1(손님), send(msg)

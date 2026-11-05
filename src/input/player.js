@@ -7,7 +7,7 @@ export class PlayerInput {
     this.canPress = canPress;
     this.keys = {};
     this.joy = { id: null, cx: 0, cy: 0, x: 0, y: 0 };
-    this.guard = false; this.gp = false; this.roll = false; this.rollDir = null; this.btns = []; this.ougi = false; this.score = -1;
+    this.guard = false; this.gp = false; this.roll = false; this.rollDir = null; this.btns = []; this.ougi = false; this.sk = false; this.score = -1;
     this.el = { joyZone, joyBase, joyKnob };
     const touch = () => onAnyTouch && onAnyTouch();
 
@@ -15,7 +15,7 @@ export class PlayerInput {
       const k = el.dataset.k;
       const down = (e) => {
         e.preventDefault(); touch(); el.classList.add('on');
-        if (k === 'guard') this.setGuard(true); else if (k === 'roll') this.roll = true; else if (k === 'ougi') this.ougi = true;
+        if (k === 'guard') this.setGuard(true); else if (k === 'roll') this.roll = true; else if (k === 'ougi') this.ougi = true; else if (k === 'skill') this.sk = true;
       };
       const up = (e) => { e.preventDefault(); el.classList.remove('on'); if (k === 'guard') this.setGuard(false); };
       el.addEventListener('pointerdown', down);
@@ -65,6 +65,7 @@ export class PlayerInput {
       if (KMAP[k]) this.pressAtk(KMAP[k][0], KMAP[k][1]);
       if (k === ' ') { this.roll = true; e.preventDefault(); }
       if (k === 'p') this.ougi = true;
+      if (k === 'e') this.sk = true;
       if (k === 'l' || k === 'shift') this.setGuard(true);
       if (k === 'escape' && this.onEscape) this.onEscape();
     });
@@ -128,16 +129,16 @@ export class PlayerInput {
     el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
   }
   setGuard(on) { if (on && !this.guard) this.gp = true; this.guard = on; }
-  clear() { this.btns.length = 0; this.guard = false; this.gp = false; this.roll = false; this.rollDir = null; this.ougi = false; this.score = -1; }
+  clear() { this.btns.length = 0; this.guard = false; this.gp = false; this.roll = false; this.rollDir = null; this.ougi = false; this.sk = false; this.score = -1; }
   // 오의 문양 점수 (다 그렸을 때 한 번 전달)
   setScore(v) { this.score = v; }
   // sim.step 직전 호출: 이번 프레임 입력을 꺼냄
   consume() {
     let [mx, my] = this.stick();
     if (this.roll && this.rollDir) [mx, my] = this.rollDir; // 튕긴 방향으로 구르기
-    const fi = { mx, my, guard: this.guard, gp: this.gp, roll: this.roll, btns: this.btns, ougi: this.ougi };
+    const fi = { mx, my, guard: this.guard, gp: this.gp, roll: this.roll, btns: this.btns, ougi: this.ougi, sk: this.sk };
     if (this.score >= 0) fi.score = this.score;
-    this.btns = []; this.gp = false; this.roll = false; this.rollDir = null; this.ougi = false; this.score = -1;
+    this.btns = []; this.gp = false; this.roll = false; this.rollDir = null; this.ougi = false; this.sk = false; this.score = -1;
     return fi;
   }
   joyHome() {

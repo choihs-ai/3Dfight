@@ -28,7 +28,7 @@ export class Fighter {
       // 걷기 애니메이션용 정보 (wk: 0 변화없음 / 1 멈춤 / 2 앉음 / 3 걷기)
       wk: 0, wmx: 0, wmy: 0, wph: 0, ki: 0,
       // 캐릭터 고유 시스템: 열기(불) · 발도/뇌속(번개) — 이번 기술에 붙은 효과
-      heat: 0, iaiF: 0, iaiReady: false, hitAt: -99, jfWin: 0, pendingJF: false, fx: '',
+      heat: 0, iaiF: 0, iaiReady: false, hitAt: -99, jfWin: 0, pendingJF: false, fx: '', eruptN: 0, rollCircle: 0,
     });
   }
   get S() { return styleOf(this.style); }
@@ -36,7 +36,7 @@ export class Fighter {
   resolve(b, d) { return resolveMove(b, d, this.style); }
   invuln() {
     const s = this.state, f = this.f;
-    const ri = this.S.roll.inv;
+    const ri = this.rollCircle ? [1, 24] : this.S.roll.inv;
     return (s === 'roll' && f >= ri[0] && f <= ri[1]) || s === 'down' || (s === 'getup' && f < 14) || s === 'ko' || s === 'win'
       || (s === 'ougi' && f <= OUGI_DASH.startup + OUGI_DASH.active) || s === 'ougiCast' || s === 'ougiStrike' || s === 'ougiHeld' || (s === 'ougiEnd' && f < 10);
   }
@@ -78,6 +78,29 @@ export class Fighter {
     this.sim.emit({ t: 'ougiDash', i: this.idx });
   }
   gainKi(v) { this.ki = Math.min(KI_MAX, this.ki + v); }
+  // 기술 버튼 (캐릭터마다 다름) → 실제로 뭔가 했으면 true
+  useSkill(inp, dx, dz) {
+    const sk = this.S.skill, sim = this.sim;
+    if (sk === 'erupt') { // 불: 불씨를 터뜨림
+      if (this.heat < 1) { sim.emit({ t: 'skillFail', i: this.idx }); return false; }
+      const n = this.heat; this.heat = 0; this.eruptN = n;
+      this.startMove('f_erupt', false, false, n >= 3 ? 'blaze' : 'erupt');
+      return true;
+    }
+    if (sk === 'mirror') { this.startMove('mirror'); return true; }
+    if (sk === 'iai') { // 번개: 바로 발도 자세
+      if (!this.iaiReady) { this.iaiReady = true; this.iaiF = this.S.traits.iai; sim.emit({ t: 'iaiReady', i: this.idx }); }
+      return false;
+    }
+    if (sk === 'dash') { // 바람: 상대 옆으로 돌아 들어가는 무적 이동
+      if (this.st < 10 || this.exhaust) return false;
+      this.startRoll(inp, dx, dz);
+      this.rollCircle = Math.abs(inp.mx) > 0.3 ? Math.sign(inp.mx) : (this.sim.frame % 2 ? 1 : -1);
+      sim.emit({ t: 'windDash', i: this.idx });
+      return true;
+    }
+    return false;
+  }
   startRoll(inp, dx, dz) {
     let mx = inp.mx, my = inp.my;
     if (Math.hypot(mx, my) < 0.3) { mx = 0; my = -1; }
@@ -87,7 +110,7 @@ export class Fighter {
     this.rollDir = [wx / l, wz / l];
     if (Math.abs(my) >= Math.abs(mx)) { this.rollAxis = 'x'; this.rollSign = my >= 0 ? 1 : -1; }
     else { this.rollAxis = 'z'; this.rollSign = mx > 0 ? 1 : -1; }
-    this.state = 'roll'; this.f = 0; this.useSt(this.S.roll.stam, 35); this.guard = false; this.crouch = false; this.move = null; this.iaiF = 0; this.iaiReady = false;
+    this.state = 'roll'; this.f = 0; this.rollCircle = 0; this.useSt(this.S.roll.stam, 35); this.guard = false; this.crouch = false; this.move = null; this.iaiF = 0; this.iaiReady = false;
     this.sim.emit({ t: 'roll', i: this.idx });
   }
   update(inp, op) {
@@ -115,6 +138,8 @@ export class Fighter {
         if (sim.frame - inp.ougiPressed <= 6 && this.ki >= KI_MAX) { inp.ougiPressed = -99; this.startOugi(); break; }
         const fresh = sim.frame - inp.rollPressed <= 6;
         if (fresh && !this.exhaust && this.st >= 10) { inp.rollPressed = -99; this.startRoll(inp, dx, dz); break; }
+        // 기술 버튼
+        if (sim.frame - inp.skillPressed <= 6) { inp.skillPressed = -99; if (this.useSkill(inp, dx, dz)) break; }
         // 번개 발도: 스틱을 놓고 가드 없이 가만히 있으면 칼을 넣고 기다림
         const S = this.S;
         if (S.traits.iai) {
@@ -197,7 +222,12 @@ export class Fighter {
         if (this.f >= 20) { this.state = 'idle'; this.f = 0; this.idleF = 0; }
         break;
       case 'roll': {
-        const R = this.S.roll, p = clamp(this.f / (R.dur * 0.77), 0, 1), sp = R.speed * Math.pow(1 - p, 0.6);
+        const R = this.S.roll, p = clamp(this.f / (R.dur * 0.77), 0, 1), sp = R.speed * (this.rollCircle ? 1.2 : 1) * Math.pow(1 - p, 0.6);
+        if (this.rollCircle) { // 질풍 걸음: 상대 주위를 돌며 파고듦
+          let tx = -dz * this.rollCircle * 0.8 + dx * 0.35, tz = dx * this.rollCircle * 0.8 + dz * 0.35;
+          if (dist < 1.1) { tx = -dz * this.rollCircle; tz = dx * this.rollCircle; }
+          const l = Math.hypot(tx, tz) || 1; this.rollDir = [tx / l, tz / l];
+        }
         this.x += this.rollDir[0] * sp * DT; this.z += this.rollDir[1] * sp * DT;
         // 바람 선풍: 구르는 도중 아무 베기 → 회전베기
         const ra = this.S.traits.rollAtk;
@@ -205,7 +235,7 @@ export class Fighter {
           const b = this.takeBuf(inp, 8);
           if (b) { this.yaw = tYaw; this.startMove('gale'); this.swipeAng = b.a || 0; sim.emit({ t: 'gale', i: this.idx }); break; }
         }
-        if (this.f >= R.dur) { this.state = 'idle'; this.f = 0; this.idleF = 0; }
+        if (this.f >= R.dur) { this.state = 'idle'; this.f = 0; this.idleF = 0; this.rollCircle = 0; }
         break;
       }
     }
@@ -232,6 +262,7 @@ export class Fighter {
     const air = this.state === 'launched';
     const AS = A.S;
     let dmg = m.dmg * (counter ? AS.counterMul : 1) * this.S.taken;
+    if (m.id === 'f_erupt') dmg += 4 * A.eruptN;
     if (A.fx === 'blaze') dmg *= 1.4; else if (A.fx === 'jf') dmg *= 1.3; else if (A.fx === 'iai') dmg *= 1.2;
     if (A.chainN >= AS.scaleFrom && A.fx !== 'jf') dmg *= Math.max(0.5, 1 - 0.15 * (A.chainN - AS.scaleFrom + 1)); // 흐름 연계 보정 (기본 3타째부터)
     this.iaiF = 0; this.iaiReady = false;

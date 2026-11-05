@@ -48,9 +48,9 @@ for (const [name, vp] of [['landscape', { width: 844, height: 390 }], ['portrait
   const tapMv = await moveAfter(async () => { await page.mouse.move(cx, cy); await page.mouse.down(); await page.mouse.up(); });
   check(tapMv === 'iai_flash', `${name}: 발도 자세에서 패드 탭 → 발도 일섬 (${tapMv})`);
   const downMv = await moveAfter(async () => { await page.mouse.move(cx, cy - 30); await page.mouse.down(); await page.mouse.move(cx, cy + 30, { steps: 4 }); await page.mouse.up(); });
-  check(downMv === 'slash_down', `${name}: 아래로 긋기 → 내려베기 (${downMv})`);
+  check(downMv === 't_down', `${name}: 아래로 긋기 → 번개 낙뢰 (${downMv})`);
   const hMv = await moveAfter(async () => { await page.mouse.move(cx + 35, cy); await page.mouse.down(); await page.mouse.move(cx - 35, cy, { steps: 4 }); await page.mouse.up(); });
-  check(hMv === 'slash_h', `${name}: 가로 긋기 → 가로베기 (${hMv})`);
+  check(hMv === 't_slash', `${name}: 가로 긋기 → 번개 뇌광 베기 (${hMv})`);
   await page.evaluate(() => { window.__G.freeze = false; window.__step(120); });
   await page.waitForTimeout(400);
   await page.screenshot({ path: join(outDir, `fight-${name}.png`) });

@@ -17,6 +17,13 @@ export const CLIP_CUTS = {
   kickslash: { clip: 'kick', t0: 0.05, hit: 0.32, t1: 0.75 },
   overhead: { clip: 'casting', t0: 1.95, hit: 2.33, t1: 2.85 }, // 머리 위로 들었다 정면 바닥까지 수직 내려찍기
   mirror: { clip: 'guard', t0: 0.0, hit: 0.18, t1: 0.45 }, // 물거울: 칼을 세워 받는 자세 유지
+  erupt: { clip: 'power_up', t0: 0.0, hit: 0.45, t1: 1.3 },      // 불 화염 해방: 기를 터뜨림
+  ss2a: { clip: 'ss_slash2', t0: 0.3, hit: 0.67, t1: 0.95 },     // 한손 연속베기 1타
+  ss2c: { clip: 'ss_slash2', t0: 1.6, hit: 2.43, t1: 2.95 },     // 한손 연속베기 마지막: 뛰어 내려찍기
+  ss_slam: { clip: 'ss_cast', t0: 1.25, hit: 1.73, t1: 2.5 },    // 들었다가 땅까지 내려찍기
+  ss_leap: { clip: 'ss_slash4', t0: 0.45, hit: 1.4, t1: 2.0 },   // 뛰어오르며 베기
+  ss_smash: { clip: 'ss_attack1', t0: 0.35, hit: 1.17, t1: 1.9 }, // 높이 뛰어 내려찍기
+  draw_cut: { clip: 'sw_draw1', t0: 0.0, hit: 0.2, t1: 0.5 },     // 칼집에서 뽑으며 베기 (발도)
   // 한손검 (방패 팩, 왼팔은 칼집 쥔 자세로 교체)
   ss_slash: { clip: 'ss_slash', t0: 0.2, hit: 0.56, t1: 1.1 },
   ss_low: { clip: 'ss_slash2', t0: 0.55, hit: 0.88, t1: 1.3 },
@@ -41,17 +48,33 @@ const BASE = {
   slash_low: ['slash5'], slash_down: ['overhead'], slash_up: ['attack'], thrust: ['kick2'], sweep: ['slide'], helm: ['jump'],
   // 캐릭터 전용 기술
   blaze_rush: { L: ['spinA'], R: ['slash3'] }, mirror: ['mirror'], mirror_cut: { L: ['spinA'], R: ['slash4'] },
-  iai_flash: ['inward'], raiko: ['stab', 'ss_quick'], gale: { L: ['spinA'], R: ['spinB'] },
+  iai_flash: ['draw_cut'], raiko: ['stab', 'ss_quick'], gale: { L: ['spinA'], R: ['spinB'] },
+  // 🔥 불: 양손 대검 — 크고 무거운 동작
+  f_stab: ['stab'], f_combo2: { L: ['kickslash'], R: ['slash4'] }, f_combo3: { L: ['spinA'], R: ['slash3'] },
+  f_slash: { L: ['slash', 'kickslash'], R: ['slash3'] }, f_rise: ['attack'], f_down: ['overhead'], f_low: ['slash5'],
+  f_sweep: ['slide'], f_spin: { L: ['spinA'], R: ['spinB'] }, f_helm: ['jump'], f_erupt: ['erupt'],
+  // 🌊 물: 양손·한손을 섞어 흐르는 연속 동작
+  w_stab: ['stab'], w_flow2: { L: ['kickslash'], R: ['ss_mid'] }, w_flow3: { L: ['spinA'], R: ['slash4'] }, w_flow4: ['spinB'],
+  w_slash: { L: ['spinA', 'slash'], R: ['slash4', 'ss_slash3'] }, w_rise: ['attack'], w_down: ['overhead'], w_low: ['ss_crouch'],
+  w_thrust: ['stab'], w_sweep: ['slide'], w_spin: ['spinB'], w_tide: { L: ['slash'], R: ['slash3'] },
+  // ⚡ 번개: 한손 발도술 — 짧고 날카로운 동작, 뛰어서 내려찍기
+  t_stab: ['ss_quick'], t_rai2: ['ss2a'], t_rai3: ['ss2c'], t_slash: { L: ['ss_low', 'ss_crouch'], R: ['inward', 'ss_mid'] },
+  t_rise: ['ss_slash3'], t_down: ['ss_slam'], t_low: ['ss_crouch'], t_slide: ['slide'], t_leap: ['ss_leap'], t_heaven: ['ss_smash'],
+  // 🍃 바람: 회전과 도약
+  n_stab: ['stab'], n_gale2: { L: ['spinA'], R: ['ss_slash3'] }, n_gale3: ['spinB'], n_slash: { L: ['spinA', 'kick2'], R: ['ss_slash3', 'slash3'] },
+  n_rise: ['attack'], n_down: ['ss_leap'], n_low: ['slash5'], n_dash: ['stab'], n_sweep: ['slide'], n_spin: { L: ['spinA'], R: ['spinB'] }, n_sky: ['ss_smash'],
 };
+// loco: 이동·가드 자세 (없으면 양손 대검 기본)
+const ONE_HAND_LOCO = { walk_f: 'ss_walk_f', walk_b: 'ss_walk_b', strafe_l: 'ss_strafe1', strafe_r: 'ss_strafe2', run: 'ss_run', guard: 'ss_block_idle', crouch: 'ss_crouch_idle' };
 export const STYLES = {
-  // 불: 양손 대검식 — 크게 내려치는 힘 위주
-  fire: { idle: 'idle', fidget: ['idle3', 'idle4'], moves: { ...BASE, slash_down: ['overhead'] } },
-  // 물: 양손 + 한손을 섞어 흐르듯 이어지는 베기
-  water: { idle: 'idle2', fidget: ['idle5'], moves: { ...BASE, slash_h: { L: ['spinA', 'slash'], R: ['slash4', 'ss_slash3'] }, combo2: { L: ['kickslash'], R: ['ss_mid', 'slash3'] }, slash_down: ['overhead'] } },
-  // 번개: 한손 발도술 — 왼손은 칼집, 빠르고 짧은 베기
-  thunder: { idle: 'ss_idle', fidget: ['idle4'], moves: { ...BASE, stab: ['stab', 'ss_quick'], slash_h: { L: ['ss_low', 'ss_crouch'], R: ['inward', 'ss_mid'] }, combo2: { L: ['ss_low'], R: ['ss_quick', 'inward'] }, combo3: { L: ['spinA'], R: ['ss_mid'] }, thrust: ['stab'], slash_low: ['ss_crouch', 'ss_low'], slash_down: ['overhead'], slash_up: ['attack', 'ss_slash3'] } },
-  // 바람: 회전 위주 + 한손 휘두르기
-  wind: { idle: 'idle2', fidget: ['idle3'], moves: { ...BASE, slash_h: { L: ['spinA', 'kick2'], R: ['ss_slash3', 'slash3'] }, combo2: { L: ['spinA'], R: ['ss_mid'] }, combo3: { L: ['spinA'], R: ['spinB'] }, slash_low: ['ss_crouch', 'slash5'], slash_down: ['overhead'] } },
+  // 불: 양손 대검 — 묵직한 기본 자세
+  fire: { idle: 'idle', fidget: ['idle3', 'idle4'], loco: {}, moves: BASE },
+  // 물: 칼끝을 낮춘 차분한 자세
+  water: { idle: 'idle2', fidget: ['idle5'], loco: { guard: 'gs_block3' }, moves: BASE },
+  // 번개: 한손 — 왼손은 칼집, 낮고 빠른 걸음
+  thunder: { idle: 'ss_idle', fidget: ['ss_idle4'], loco: ONE_HAND_LOCO, moves: BASE },
+  // 바람: 가벼운 한손 자세 + 다른 달리기
+  wind: { idle: 'ss_idle4', fidget: ['idle3'], loco: { run: 'gs_run2', walk_f: 'ss_walk_f', walk_b: 'ss_walk_b' }, moves: BASE },
 };
 
 // side: 'L' | 'R' (그은 방향)
@@ -78,4 +101,5 @@ export function moveClipTime(c, m, f) {
 
 // 한손으로 쥐는 모션은 칼 방향이 다름 → 오른손 뼈 기준 칼날 방향 덮어쓰기
 const ONE_HAND = [0.2, 0.19, -0.96];
-export const BLADE_DIR_BY_CLIP = { stab: [0.05, 0.97, 0.22], inward: ONE_HAND, ss_idle: ONE_HAND, ss_slash: ONE_HAND, ss_slash2: ONE_HAND, ss_slash3: ONE_HAND, ss_slash5: ONE_HAND, ss_attack2: ONE_HAND, ss_attack3: ONE_HAND, ss_attack4: ONE_HAND, ss_kick: ONE_HAND };
+export const BLADE_DIR_BY_CLIP = {
+  ...Object.fromEntries(['ss_walk_f', 'ss_walk_b', 'ss_run', 'ss_strafe1', 'ss_strafe2', 'ss_strafe3', 'ss_strafe4', 'ss_block_idle', 'ss_crouch_idle', 'ss_idle2', 'ss_idle3', 'ss_idle4', 'ss_cast', 'ss_cast2', 'ss_slash4', 'ss_attack1', 'ss_crouching', 'ss_crouching2', 'ss_crouching3', 'ss_jump', 'ss_jump2', 'ss_power'].map((n) => [n, ONE_HAND])), stab: [0.05, 0.97, 0.22], inward: ONE_HAND, ss_idle: ONE_HAND, ss_slash: ONE_HAND, ss_slash2: ONE_HAND, ss_slash3: ONE_HAND, ss_slash5: ONE_HAND, ss_attack2: ONE_HAND, ss_attack3: ONE_HAND, ss_attack4: ONE_HAND, ss_kick: ONE_HAND };

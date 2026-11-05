@@ -119,6 +119,7 @@ export class AI {
       }
     }
     if (me.state === 'blockstun' && this.plan) wantG = true;
+    if (this.skill && me.state === 'idle') { out.sk = true; this.skill = false; }
     return this.finish(out, mx, my, wantG, wantC);
   }
   finish(out, mx, my, wantG, wantC) {
@@ -128,29 +129,34 @@ export class AI {
     return out;
   }
   pick(dist) {
-    const L = this.L, R = this.rng, r = R(), me = this.me;
+    const L = this.L, R = this.rng, r = R(), me = this.me, P = me.S.ai || { pref: 2, circle: 0.2, wait: 0.2 }, mv = movesOf(me.style);
+    const toC = (x) => { const [b, d] = x.split(':'); return [b, d || 'n']; };
+    const ag = L.aggro + (P.aggro || 0);
     this.sd = R() < 0.5 ? 1 : -1;
     let T = 30;
     if (me.st < 20) { this.intent = 'back'; T = 30; }
-    else if (me.S.traits.iai && dist > 2.2 + RANGE_BONUS && dist < 4.2 + RANGE_BONUS && r < L.aggro * 0.8) {
-      // 번개: 거리를 두고 발도 자세
-      this.atk = { r: movesOf(me.style).iai_flash.range + movesOf(me.style).iai_flash.lunge * 0.8 }; this.intent = 'iai'; T = 70;
+    // 번개: 거리를 두고 발도 자세 (기술 버튼으로 바로)
+    else if (me.S.skill === 'iai' && dist > 2.2 + RANGE_BONUS && dist < 4.2 + RANGE_BONUS && r < ag * 0.5) {
+      this.atk = { r: mv.iai_flash.range + mv.iai_flash.lunge * 0.8 }; this.intent = 'iai'; this.skill = true; T = 70;
     }
-    else if (dist > 2.8 + RANGE_BONUS) { this.intent = r < 0.8 ? 'approach' : 'circle'; T = 20 + R() * 30; }
+    // 불: 불씨가 2개 이상이고 붙어 있으면 화염 해방
+    else if (me.S.skill === 'erupt' && me.heat >= 2 && dist < 1.4 + RANGE_BONUS && r < ag) { this.skill = true; this.intent = 'wait'; this.waitG = false; T = 10; }
+    // 바람: 가끔 질풍 걸음으로 옆으로 돌아 들어감
+    else if (me.S.skill === 'dash' && dist < 3.2 + RANGE_BONUS && r < 0.12) { this.skill = true; this.intent = 'circle'; T = 16; }
+    else if (dist > P.pref + 1.2 + RANGE_BONUS) { this.intent = r < 0.8 - P.circle * 0.5 ? 'approach' : 'circle'; T = 20 + R() * 30; }
+    else if (dist < P.pref - 0.9 && r < 0.35) { this.intent = 'back'; T = 12 + R() * 14; } // 원하는 거리보다 가까우면 물러남 (번개)
     else if (dist > 0.95 + RANGE_BONUS * 0.4) {
-      if (r < L.aggro) {
-        const near = [['t', 'n'], ['h', 'n'], ['l', 'n'], ['u', 'f'], ['t', 'n'], ['h', 's']];
-        const far = [['d', 'n'], ['t', 'f'], ['l', 'b'], ['h', 's'], ['d', 'b'], ['l', 'n']];
-        // 캐릭터 전용 기술도 섞음
-        const own = { fire: [['h', 'f'], ['d', 'n']], thunder: [['t', 'f']], wind: [['h', 's']], water: [['h', 'n']] }[me.style] || [];
+      if (r < ag) {
+        const near = P.near ? P.near.map(toC) : [['t', 'n'], ['h', 'n'], ['l', 'n'], ['u', 'f'], ['h', 's']];
+        const far = P.far ? P.far.map(toC) : [['d', 'n'], ['t', 'f'], ['l', 'b'], ['h', 's'], ['d', 'b']];
         // 불: 불씨가 차면 작열 기술
-        const pool = me.S.traits.heat && me.heat >= me.S.traits.heat ? [['d', 'n'], ['h', 'f']] : (dist < 1.55 + RANGE_BONUS ? near : far).concat(own);
+        const pool = me.S.traits.heat && me.heat >= me.S.traits.heat ? [['d', 'n'], ['h', 'f']] : dist < 1.55 + RANGE_BONUS ? near : far;
         const c = pool[(R() * pool.length) | 0];
         const id = resolveMove(c[0], c[1], me.style);
-        this.atk = { b: c[0], d: c[1], r: movesOf(me.style)[id].range + 0.2 }; this.intent = 'attack'; T = 40;
-      } else if (r < L.aggro + 0.2) { this.intent = 'circle'; T = 18 + R() * 25; }
-      else if (r < L.aggro + 0.3) { this.intent = 'back'; T = 10 + R() * 15; }
-      else { this.intent = 'wait'; this.waitG = R() < 0.5; T = 14 + R() * 24; }
+        this.atk = { b: c[0], d: c[1], r: mv[id].range + mv[id].lunge * 0.6 + 0.2 }; this.intent = 'attack'; T = 40;
+      } else if (r < ag + P.circle) { this.intent = 'circle'; T = 18 + R() * 25; }
+      else if (r < ag + P.circle + P.wait) { this.intent = 'wait'; this.waitG = R() < 0.6; T = 14 + R() * 24; }
+      else { this.intent = 'back'; T = 10 + R() * 15; }
     } else { if (r < 0.6) { this.atk = { b: 't', d: 'n', r: 9 }; this.intent = 'attack'; } else this.intent = 'back'; T = 14; }
     this.iT = T * (L.tempo || 1);
   }
