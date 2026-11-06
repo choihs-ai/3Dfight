@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="락온파이터">
+<meta name="theme-color" content="#0b0a10">
+<title>락온 파이터</title>
+  <script type="module" crossorigin src="./assets/index-C2Wd0A-D.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-CVk8i38I.css">
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="flash"></div>
+<div id="impact"></div>
+<div id="speedlines"></div>
+
+<div id="hud" class="hide">
+  <div class="side p1">
+    <div class="name"><span style="color:var(--p1)" id="p1Name">나</span><span class="pips" id="pip0"></span></div>
+    <div class="hpbar" id="hpb0"><div class="lag" id="lag0"></div><div class="fill" id="hp0"></div></div>
+    <div class="stbar" id="stb0"><div id="st0"></div></div>
+    <div class="kibar" id="kib0"><div id="ki0"></div><span>氣</span></div>
+    <div class="trait" id="tr0"></div>
+  </div>
+  <div id="timer">60</div>
+  <div class="side p2">
+    <div class="name"><span style="color:var(--p2)" id="cpuName">CPU</span><span class="pips" id="pip1"></span></div>
+    <div class="hpbar" id="hpb1"><div class="lag" id="lag1"></div><div class="fill" id="hp1"></div></div>
+    <div class="stbar" id="stb1"><div id="st1"></div></div>
+    <div class="kibar" id="kib1"><div id="ki1"></div><span>氣</span></div>
+    <div class="trait" id="tr1"></div>
+  </div>
+</div>
+<button id="pauseBtn" class="hide">Ⅱ</button>
+<div id="netBadge" class="hide">상대 응답 기다리는 중…</div>
+<div id="calls"><div class="ccol" id="cL"></div><div class="ccol" id="cR"></div></div>
+<div id="banner"></div>
+<div id="tip" class="hide"></div>
+<div id="warn" class="hide"><i id="warnR"></i><b id="warnT"></b><small id="warnS"></small></div>
+<div id="turn" class="hide"><b id="turnT"></b><span id="turnBar"></span></div>
+
+<div id="controls" class="hide">
+  <div id="joyZone"><div id="joyBase"><div id="joyHint">↑ 상대 쪽 · ↔ 옆걸음 · 튕기기 = 구르기</div><div id="joyKnob"></div></div></div>
+  <div id="pad">
+    <div class="side-btns">
+      <div class="btn ougi hide" data-k="ougi" id="ougiBtn">오의</div>
+      <div class="btn sk" data-k="skill" id="skillBtn"><span id="skillIc">✦</span><small id="skillNm">기술</small></div>
+      <div class="btn r" data-k="roll">회피</div>
+      <div class="btn g big" data-k="guard">가드<small>톡=패링</small></div>
+    </div>
+    <div id="slashPad">
+      <div class="sp-hint"><b>긋기</b> = 베기<br><b>탭</b> = 찌르기</div>
+      <div class="sp-arrows"><i class="u">↑</i><i class="d">↓</i><i class="l">←</i><i class="r">→</i><i class="dl">↙</i><i class="dr">↘</i></div>
+    </div>
+  </div>
+</div>
+
+<div id="title" class="screen">
+  <div class="panel">
+    <div class="logo">LOCK-ON<br>FIGHTER</div>
+    <div class="sub">락온 파이터 · 원소 검객전</div>
+    <div class="tag">3인칭 락온 시점 · 1:1 검술 대전</div>
+    <div class="row" id="diffRow">
+      <button class="ui" data-d="practice">연습</button>
+      <button class="ui" data-d="easy">쉬움</button>
+      <button class="ui sel" data-d="normal">보통</button>
+      <button class="ui" data-d="hard">어려움</button>
+    </div>
+    <div class="row">
+      <button class="ui big" id="startBtn">CPU 대전</button>
+    </div>
+    <div class="row">
+      <button class="ui big alt" id="onlineBtn">온라인 대전</button>
+    </div>
+    <div class="row">
+      <button class="ui" id="movesBtn">기술표 · 조작법</button>
+      <button class="ui" id="speedBtn">속도: 보통</button>
+      <button class="ui" id="stageBtn">경기장: 대나무숲 신사</button>
+    </div>
+    <div class="note" id="orientNote">📱 가로로 돌리면 더 넓게 볼 수 있어요</div>
+    <div class="note">PC: WASD 이동 · U 찌르기 · Y 왼쪽 베기 · I 오른쪽 베기 · O 위로 · K 아래로 · J 대각선 · L 가드 · Space 회피 · E 기술 · P 오의</div>
+    <div class="note credit">캐릭터 모델: VRM1_Constraint_Twist_Sample © 2022 pixiv Inc. · Seed-san model by VirtualCast, Inc. (VRM Public License 1.0) · 모션: Mixamo</div>
+    <div class="note ver" id="ver"></div>
+  </div>
+</div>
+
+<div id="online" class="screen hide">
+  <div class="panel">
+    <div class="logo" style="font-size:26px">온라인 대전</div>
+    <div id="olMenu">
+      <div class="row"><button class="ui big" id="olHost">방 만들기</button></div>
+      <div class="row"><input id="olCode" class="code-in" inputmode="numeric" maxlength="4" placeholder="방 번호 4자리"><button class="ui" id="olJoin">참가</button></div>
+    </div>
+    <div id="olWait" class="hide">
+      <div class="sub">방 번호</div>
+      <div class="room-code" id="olRoom">----</div>
+      <div class="note">친구에게 이 번호를 알려주세요. 친구가 들어오면 자동으로 시작해요.</div>
+    </div>
+    <div class="note" id="olStatus"></div>
+    <div class="row"><button class="ui" id="olBack">뒤로</button></div>
+    <div class="note">같은 와이파이가 아니어도 돼요. 일부 통신망에서는 연결이 안 될 수 있어요.</div>
+  </div>
+</div>
+
+<div id="ougiLayer" class="hide">
+  <div id="ougiDim"></div>
+  <div id="cutin"><div class="ci-style" id="ciStyle"></div><div class="ci-name" id="ciName"></div><div class="ci-hanja" id="ciHanja"></div></div>
+  <canvas id="drawCv"></canvas>
+  <div id="drawHint"></div>
+  <div id="drawGrade"></div>
+</div>
+
+<div id="charSel" class="screen hide">
+  <div class="panel wide">
+    <div class="logo" style="font-size:26px">검객 선택</div>
+    <div class="cards" id="cards"></div>
+    <div class="row"><button class="ui big" id="fightBtn">대전 시작</button></div>
+    <div class="row"><button class="ui" id="charBack">뒤로</button></div>
+    <div class="mv charinfo" id="charInfo"></div>
+  </div>
+</div>
+
+<div id="moves" class="screen hide">
+  <div class="panel">
+    <div class="logo" style="font-size:26px">기술표</div>
+    <div class="mv">
+      <h3>기본 조작</h3>
+      <div class="it"><span class="k">왼쪽 스틱</span><span class="d">위 = 상대에게 다가가기 · 아래 = 물러나기 · 좌우 = 상대 주위를 돌기(옆걸음)</span></div>
+      <div class="it"><span class="k">스틱 튕기기</span><span class="d">빠르게 튕기고 놓으면 그 방향으로 <b>무적 구르기</b> (회피 버튼도 가능)</span></div>
+      <div class="it"><span class="k">베기 패드</span><span class="d">오른쪽 큰 원에서 <b>긋는 방향</b>대로 벰 — ↓ 내려치기, ← 왼쪽으로 베기, → 오른쪽으로 베기. <b>톡</b> 치면 찌르기</span></div>
+      <div class="it"><span class="k">가드 꾹</span><span class="d">서서 막기 — <b>상단·중단</b>을 막음</span></div>
+      <div class="it"><span class="k">가드 + 아래</span><span class="d">앉아 막기 — <b>하단</b>을 막고 <b>상단은 피함</b>. 중단에는 맞음</span></div>
+      <div class="it"><span class="k">가드 톡</span><span class="d">맞기 직전에 누르면 <b>패링</b> — 상대가 크게 휘청임</span></div>
+      <h3>검술 (앞 = 스틱 위, 뒤 = 스틱 아래, 옆 = 스틱 좌우)</h3>
+      <div class="it"><span class="k">탭</span><span class="d"><span class="lv h">상단</span>찌르기 — 가장 빠름</span></div>
+      <div class="it"><span class="k">탭 → 가로 → 가로</span><span class="d"><span class="lv h">상단</span>삼연격 — 마지막 회전베기에 다운</span></div>
+      <div class="it"><span class="k">← / →</span><span class="d"><span class="lv h">상단</span>가로베기 — <b>그은 방향으로</b> 칼이 지나감 (왼쪽으로 그으면 왼쪽으로 베기)</span></div>
+      <div class="it"><span class="k">↙ ↘ 대각선</span><span class="d"><span class="lv l">하단</span>하단베기 — 서서 막는 상대에게</span></div>
+      <div class="it"><span class="k">↓ 아래로</span><span class="d"><span class="lv m">중단</span>내려베기 — 강하지만 느림</span></div>
+      <div class="it"><span class="k">↑ 위로</span><span class="d"><span class="lv m">중단</span>올려베기 — <b>띄우기</b>. 이후 탭→가로→가로 공중 콤보. 막히면 크게 반격당함</span></div>
+      <div class="it"><span class="k">앞 + 탭</span><span class="d"><span class="lv m">중단</span>밀어차기 — 멀리 밀어냄</span></div>
+      <div class="it"><span class="k">뒤 + ↙↘</span><span class="d"><span class="lv l">하단</span>다리 후리기 — 넘어뜨림</span></div>
+      <div class="it"><span class="k">옆 + 가로</span><span class="d"><span class="lv m">중단</span>회전베기 — <b>옆걸음을 잡는</b> 추적기</span></div>
+      <div class="it"><span class="k">뒤 + ↓</span><span class="d"><span class="lv m">중단</span>투구 깨기 — <b>슈퍼아머</b>(맞아도 안 끊김), 가드 스태미나를 크게 깎음</span></div>
+      <h3>캐릭터별 전투 스타일 (같은 조작, 다른 기술·시스템)</h3>
+      <div id="movesChars"></div>
+      <h3>오의</h3>
+      <div class="it"><span class="d">때리거나 맞거나 막으면 <b>기(氣) 게이지</b>가 찹니다. 꽉 차면 <b>오의 버튼</b>이 빛나요. 누르면 무적 돌진 — 닿으면 시간이 멈추고, 화면에 나오는 <b>원소 문양</b>(🔥 원 · 🌊 물결 · ⚡ 번개 · 🍃 소용돌이)을 손가락으로 그립니다. 정확할수록 큰 피해. 헛돌진하면 큰 빈틈.</span></div>
+      <h3>흐름 연계</h3>
+      <div class="it"><span class="d">베는 도중이나 직후에 <b>다음 긋기</b>를 하면 어떤 베기든 끊기지 않고 이어집니다 (기본 최대 5연속, 캐릭터마다 다름). 이어지는 베기는 준비 동작을 건너뛰어 더 빠름. 상·중·하단을 섞어 흔드세요. 3타째부터는 피해가 줄고, 스태미나가 계속 닳습니다.</span></div>
+      <h3>요령</h3>
+      <div class="it"><span class="d">가로베기·찌르기는 옆걸음으로 피할 수 있고, 옆+가로 회전베기가 그 옆걸음을 잡습니다. 상대가 기술을 쓰는 도중에 베면 <b>카운터</b>(피해 증가).</span></div>
+    </div>
+    <div class="row"><button class="ui big" id="movesClose">닫기</button></div>
+  </div>
+</div>
+
+<div id="pause" class="screen hide">
+  <div class="panel">
+    <div class="logo" style="font-size:34px">일시정지</div>
+    <div class="row"><button class="ui big" id="resumeBtn">계속하기</button></div>
+    <div class="row"><button class="ui" id="pMoves">기술표</button><button class="ui" id="pQuit">처음으로</button></div>
+  </div>
+</div>
+
+<div id="result" class="screen hide">
+  <div class="panel">
+    <div class="res" id="resText">승리</div>
+    <div class="sub" id="resSub"></div>
+    <div class="row"><button class="ui big" id="againBtn">다시 하기</button></div>
+    <div class="row"><button class="ui" id="rQuit">처음으로</button></div>
+  </div>
+</div>
+
+<div id="fatal" class="screen hide"><div class="panel"><p id="fatalMsg" style="font-size:16px;line-height:1.5"></p></div></div>
+
+</body>
+</html>
