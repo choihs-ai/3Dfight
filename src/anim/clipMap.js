@@ -88,7 +88,7 @@ export const swipeSide = (a) => (Math.cos(a || 0) < 0 ? 'L' : 'R');
 
 // 기술 진행 프레임 f → 클립 시간
 // 모션이 빨리 감기듯 보이지 않게 재생 속도 상한(MAX_RATE배): 넘치면 준비 동작 앞부분/마무리 끝부분을 잘라냄
-export const MAX_RATE = 1.6;
+export const MAX_RATE = 2.2;
 export function moveClipTime(c, m, f) {
   const S = m.startup, A = m.active, R = m.total - S - A;
   const t0 = Math.max(c.t0, c.hit - (MAX_RATE * S) / 60);

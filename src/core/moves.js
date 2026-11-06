@@ -91,8 +91,8 @@ cm('n_sweep', '회오리 다리베기', 'low', [17, 5, 22], 10, { range: 1.75 + 
 cm('n_spin', '선풍 회전', 'mid', [13, 5, 17], 12, { range: 1.6 + R, arc: 3.14, track: 0.3, push: 3, anim: 'spin' }, '360° · 옆걸음 잡기');
 cm('n_sky', '하늘 가르기', 'mid', [22, 5, 24], 17, { range: 1.5 + R, lunge: 1.2, air: [5, 22], knockdown: true, hitstop: 14, anim: 'helm' }, '크게 뛰어 내려찍기 · 하단 회피');
 
-// 칼싸움 템포: 주먹 기준 프레임을 칼에 맞게 늘림 (발생·후딜·경직을 같은 비율로 → 유불리 구조는 유지)
-export const TEMPO = { startup: 1.35, active: 1.2, recovery: 1.35, stun: 1.35 };
+// 칼싸움 템포: 누르면 바로 나가게 발생은 그대로, 대신 후딜·경직을 늘려 '휘두른 뒤의 빈틈'으로 템포를 만듦
+export const TEMPO = { startup: 1.0, active: 1.1, recovery: 1.3, stun: 1.2 };
 for (const m of Object.values(MV)) {
   m.startup = Math.round(m.startup * TEMPO.startup);
   m.active = Math.round(m.active * TEMPO.active);
@@ -129,6 +129,13 @@ for (const [sid, S] of Object.entries(STYLE_DEF)) {
       m.dmg = m.dmg * S.dmg; m.chip = m.chip * S.chip; m.track = m.track * S.track; m.arc = Math.min(3.14, m.arc + S.arc);
     }
     m.total = m.startup + m.active + m.recovery;
+    // 막혔을 때 유불리: 약한 기술은 거의 안전, 강한 기술일수록 크게 불리 → 막은 쪽이 확실히 반격할 수 있음
+    // onBlock = 공격자 기준 프레임 이득 (음수 = 막은 쪽 차례). 막는 순간을 지속 첫 프레임으로 보고 가드 경직을 정함
+    if (!m.noHit) {
+      const ob = m.onBlock ?? (-Math.round(Math.max(0, m.dmg - 4) * 1.15) - 1 - (m.launch ? 14 : 0) - (m.knockdown ? 4 : 0) - (m.armor ? 4 : 0));
+      m.onBlock = ob;
+      m.blockstun = Math.max(6, m.active + m.recovery + ob);
+    }
     T[id] = m;
   }
   MVS[sid] = T;

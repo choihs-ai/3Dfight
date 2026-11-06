@@ -123,6 +123,11 @@ export class View {
   // 파티클 위치용
   limbPos(i, limb) { return this.fx[i].anim.limbPos(limb); }
   center(i) { return this.fx[i].anim.center(); }
+  // 화면 좌표(CSS px): 파이터 머리 위
+  screenPos(i, up = 0.75) {
+    const c = this.center(i), v = (this._sp ||= new THREE.Vector3()).set(c[0], c[1] + up, c[2]).project(this.camera.cam);
+    return [(v.x * 0.5 + 0.5) * innerWidth, (-v.y * 0.5 + 0.5) * innerHeight, v.z < 1];
+  }
 
   // sim.step() 직후 매번 호출 (advanced=false면 히트스톱으로 멈춘 프레임)
   onStep(sim, advanced, t) {

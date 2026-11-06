@@ -194,3 +194,17 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block}
 .mvtab td.k{white-space:nowrap;font-weight:900;color:var(--c2)}
 .mvtab td.n{white-space:nowrap;font-weight:800}
 .mvtab td.d{opacity:.75}
+
+/* 상대 공격 예고: 머리 위에 상·중·하단 + 맞기까지 남은 시간(원이 줄어듦) */
+#warn{position:fixed;left:0;top:0;z-index:8;pointer-events:none;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;--c:#ffd84a}
+#warn.mid{--c:#ff8a2a}#warn.low{--c:#4fb6ff}
+#warn i{width:38px;height:38px;border-radius:50%;background:conic-gradient(var(--c) calc(var(--p) * 360deg),rgba(0,0,0,.45) 0);box-shadow:0 0 12px var(--c);display:block;-webkit-mask:radial-gradient(circle,transparent 11px,#000 12px);mask:radial-gradient(circle,transparent 11px,#000 12px)}
+#warn b{margin-top:-30px;font-size:15px;font-weight:900;color:#fff;text-shadow:0 0 6px var(--c),0 1px 2px #000;letter-spacing:.04em}
+#warn small{margin-top:10px;font-size:11px;font-weight:800;color:var(--c);text-shadow:0 1px 2px #000;white-space:nowrap}
+/* 내 차례: 막았거나 상대가 헛쳤을 때 */
+#turn{position:fixed;left:50%;top:58%;transform:translateX(-50%);z-index:5;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:4px}
+#turn b{font-size:26px;font-weight:900;color:#ffe9a8;text-shadow:0 0 14px #ffb43a,0 2px 3px #000;letter-spacing:.06em;animation:turnPop .18s ease-out}
+#turn span{height:5px;width:140px;border-radius:3px;background:linear-gradient(90deg,#ffb43a,#fff2a8);transform-origin:left;transform:scaleX(var(--p,1));box-shadow:0 0 8px #ffb43a}
+#turn.bad b{color:#ffb0a0;text-shadow:0 0 14px #ff4a2a,0 2px 3px #000}
+#turn.bad span{background:linear-gradient(90deg,#ff4a2a,#ffb0a0);box-shadow:0 0 8px #ff4a2a}
+@keyframes turnPop{from{transform:scale(1.5);opacity:0}to{transform:scale(1);opacity:1}}

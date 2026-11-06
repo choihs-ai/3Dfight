@@ -28,7 +28,7 @@ export class Fighter {
       // 걷기 애니메이션용 정보 (wk: 0 변화없음 / 1 멈춤 / 2 앉음 / 3 걷기)
       wk: 0, wmx: 0, wmy: 0, wph: 0, ki: 0,
       // 캐릭터 고유 시스템: 열기(불) · 발도/뇌속(번개) — 이번 기술에 붙은 효과
-      heat: 0, iaiF: 0, iaiReady: false, hitAt: -99, jfWin: 0, pendingJF: false, fx: '', eruptN: 0, rollCircle: 0,
+      heat: 0, iaiF: 0, iaiReady: false, hitAt: -99, jfWin: 0, pendingJF: false, fx: '', eruptN: 0, rollCircle: 0, wasPunished: false,
     });
   }
   get S() { return styleOf(this.style); }
@@ -147,7 +147,7 @@ export class Fighter {
             if (++this.iaiF === S.traits.iai) { this.iaiReady = true; sim.emit({ t: 'iaiReady', i: this.idx }); }
           } else if (this.iaiF) { this.iaiF = 0; this.iaiReady = false; }
         }
-        const b = this.takeBuf(inp, 8);
+        const b = this.takeBuf(inp, 10);
         if (b) {
           let id = this.resolve(b.b, b.dir), fx = '';
           if (this.iaiReady) { fx = 'iai'; if (b.b === 't') id = 'iai_flash'; }
@@ -165,6 +165,8 @@ export class Fighter {
           this.x += Math.sin(this.yaw) * s; this.z += Math.cos(this.yaw) * s;
         }
         if (f === m.startup - 2 && !m.noHit) sim.emit({ t: 'whoosh', i: this.idx, move: m.id });
+        // 헛침: 지속이 끝났는데 안 닿았으면 → 상대에게 '빈틈' 알림
+        if (f === m.startup + m.active && !this.hitDone && !m.noHit) sim.emit({ t: 'whiff', i: this.idx, move: m.id, rec: m.total - f });
         this.armorOn = !!(m.armor && f >= m.armor[0] && f <= m.armor[1]);
         // 다음 입력 받기: 전용 연속기(chain) 우선, 아니면 아무 베기나 흐름 연계 (연계 구간 안에서만)
         const S = this.S;
@@ -261,7 +263,10 @@ export class Fighter {
     const d = Math.hypot(nx, nz) || 1; nx /= d; nz /= d;
     const air = this.state === 'launched';
     const AS = A.S;
-    let dmg = m.dmg * (counter ? AS.counterMul : 1) * this.S.taken;
+    // 반격: 상대가 휘두르고 난 빈틈(후딜·패링당함)에 맞히면 1.2배 + 경직 증가
+    const punish = !counter && ((this.state === 'attack' && this.move && this.f >= this.move.startup + this.move.active) || this.state === 'parried');
+    this.wasPunished = punish;
+    let dmg = m.dmg * (counter ? AS.counterMul : punish ? 1.2 : 1) * this.S.taken;
     if (m.id === 'f_erupt') dmg += 4 * A.eruptN;
     if (A.fx === 'blaze') dmg *= 1.4; else if (A.fx === 'jf') dmg *= 1.3; else if (A.fx === 'iai') dmg *= 1.2;
     if (A.chainN >= AS.scaleFrom && A.fx !== 'jf') dmg *= Math.max(0.5, 1 - 0.15 * (A.chainN - AS.scaleFrom + 1)); // 흐름 연계 보정 (기본 3타째부터)
@@ -280,7 +285,7 @@ export class Fighter {
       this.state = 'launched'; this.f = 0; this.y = 0.02; this.vy = this.hp <= 0 ? 3.6 : 3.3; this.juggle = 3;
       this.vx = nx * 4.2; this.vz = nz * 4.2; this.launchUid = ++this.sim.uid; this.yaw = Math.atan2(-nx, -nz);
     } else {
-      this.state = 'hitstun'; this.f = 0; this.stun = m.hitstun + (counter ? 8 : 0) + (A.fx === 'jf' ? 6 : 0); this.hitLevel = m.level;
+      this.state = 'hitstun'; this.f = 0; this.stun = m.hitstun + (counter ? 8 : 0) + (punish ? 6 : 0) + (A.fx === 'jf' ? 6 : 0); this.hitLevel = m.level;
       this.vx = nx * m.push; this.vz = nz * m.push; this.yaw = turnTo(this.yaw, Math.atan2(-nx, -nz), 0.6);
     }
     return dmg;

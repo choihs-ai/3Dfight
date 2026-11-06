@@ -173,6 +173,8 @@ export class Game {
           if (pl) {
             hud.hitBar(e.d, big);
             if (e.counter) { hud.call(hud.side(e.a), '카운터!', 'red'); hud.impact(); }
+            else if (e.punish) { hud.call(hud.side(e.a), '반격!', 'gold'); if (e.a === this.me) hud.impact(); }
+            if (e.a === this.me) this.turnLeft = 0;
             if (big) hud.speedLines();
             if (e.launch) hud.call(hud.side(e.a), '띄우기!', 'gold');
             if (e.combo >= 2) hud.call(hud.side(e.a), e.combo + ' 히트', 'combo' + (e.combo >= 4 ? ' big' : ''));
@@ -187,6 +189,8 @@ export class Game {
           break;
         }
         case 'block': {
+          // 막은 쪽 차례 표시: 강한 기술을 막았으면 '지금 반격!', 내 강한 기술이 막혔으면 경고
+          if (pl && !e.brk) { if (e.d === this.me && e.adv >= 4) this.turn('지금 반격!', e.adv + 8); else if (e.a === this.me && e.adv >= 8) this.turn('막혔다! 가드', e.adv, true); }
           const hp = this.sparkPos(e.a, e.d, e.limb);
           v.hitFlash(e.d, 3, [0.4, 0.7, 1]);
           P.sparks(hp, e.brk ? 'armor' : 'block');
@@ -197,7 +201,13 @@ export class Game {
           if (pl) { if (e.brk) { hud.call(hud.side(e.a), '가드 브레이크!', 'red'); hud.hitBar(e.d, true); } }
           break;
         }
+        case 'whiff': { // 상대가 헛침 → 빈틈
+          const A = this.sim.f[e.i], D = this.sim.f[1 - e.i];
+          if (pl && e.i !== this.me && e.rec >= 10 && Math.hypot(A.x - D.x, A.z - D.z) < 3.4) this.turn('빈틈! 지금', e.rec);
+          break;
+        }
         case 'parry': {
+          if (pl && e.d === this.me) this.turn('패링! 지금', 44);
           const hp = this.sparkPos(e.a, e.d, e.limb);
           v.hitFlash(e.a, 6, [1, 0.9, 0.5]);
           P.sparks(hp, 'parry'); Sound.play('parry');
@@ -310,6 +320,35 @@ export class Game {
       Sound.play('el_' + ch.id); Sound.play('whoosh', { power: 14 });
     }, delay);
   }
+  // ---------- 공방 표시 ----------
+  turn(text, frames, bad = false) { this.turnText = text; this.turnLeft = this.turnMax = Math.max(8, frames); this.turnBad = bad; this.turnFrame = this.sim.frame; this.turnShown = ''; }
+  cues() {
+    const sim = this.sim, $ = (s) => document.querySelector(s), on = this.mode !== 'demo' && this.mode !== 'result' && sim && sim.phase === 'fight' && !sim.cine;
+    // 상대 공격 예고 (발생 중): 상단·중단·하단 + 맞기까지 남은 시간
+    const E = sim && sim.f[1 - this.me], m = E && E.move, w = $('#warn');
+    const show = on && E.state === 'attack' && m && !m.noHit && E.f < m.startup + m.active;
+    if (show) {
+      const [x, y0, vis] = this.view.screenPos(1 - this.me, 0.15), y = Math.min(innerHeight - 150, Math.max(150, y0));
+      if (vis) {
+        const lv = m.level, key = m.id + lv;
+        if (this.warnKey !== key) {
+          this.warnKey = key; w.className = lv;
+          $('#warnT').textContent = { high: '상단', mid: '중단', low: '하단' }[lv];
+          $('#warnS').textContent = (m.armor ? '아머 · ' : '') + { high: '앉으면 피함', mid: '서서 막기', low: '앉아서 막기' }[lv];
+        }
+        w.style.left = x.toFixed(0) + 'px'; w.style.top = y.toFixed(0) + 'px';
+        w.style.setProperty('--p', Math.max(0, 1 - E.f / m.startup).toFixed(3));
+      } else w.className = 'hide';
+    } else if (this.warnKey !== null) { this.warnKey = null; w.className = 'hide'; }
+    // 내 차례 / 위험 표시 (게임 프레임 기준으로 줄어듦)
+    const t = $('#turn');
+    if (on && this.turnLeft > 0) {
+      this.turnLeft -= Math.max(0, sim.frame - this.turnFrame); this.turnFrame = sim.frame;
+      if (this.turnShown !== this.turnText) { this.turnShown = this.turnText; $('#turnT').textContent = this.turnText; t.className = this.turnBad ? 'bad' : ''; }
+      t.style.setProperty('--p', Math.max(0, this.turnLeft / this.turnMax).toFixed(3));
+      if (this.turnLeft <= 0) t.className = 'hide';
+    } else if (t.className !== 'hide') { t.className = 'hide'; this.turnLeft = 0; }
+  }
   // requestAnimationFrame 마다
   frame(dt) {
     if (!this.paused && !this.freeze) { // freeze: 테스트용 (입력은 받고 시간만 멈춤)
@@ -322,6 +361,7 @@ export class Game {
     }
     this.view.render(dt, this.t, this.sim, this.mode === 'demo' || this.mode === 'result');
     this.hud.update(this.sim, this.view.fx, this.mode);
+    this.cues();
     this.ougiUI.update(dt);
     // 온라인: 상대 입력을 0.5초 넘게 기다리면 표시
     const nb = document.querySelector('#netBadge');

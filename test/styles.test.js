@@ -209,3 +209,31 @@ test('스타일 상태 저장/복원: 기술표·불씨·발도가 그대로 이
   for (let i = 0; i < 60; i++) { s.step([inp(), inp()]); t.step([inp(), inp()]); }
   assert.equal(s.hash(), t.hash());
 });
+
+test('공방: 강한 기술을 막으면 반격 찌르기가 확정으로 들어감 (반격 1.2배), 약한 기술은 막혀도 안전', () => {
+  for (const st of ['fire', 'water', 'thunder', 'wind']) {
+    const T = movesOf(st), heavy = T[resolveMove('d', 'b', st)], jab = T[resolveMove('t', 'n', st)];
+    assert.ok(heavy.onBlock <= -10, st + ' 큰 기술은 막히면 크게 불리 ' + heavy.onBlock);
+    assert.ok(jab.onBlock >= -3, st + ' 찌르기는 거의 안전 ' + jab.onBlock);
+  }
+  // 불 내려찍기(↓)를 물이 막고 → 경직이 풀리자마자 찌르기
+  const s = setup(['fire', 'water'], 1.4);
+  let blockAt = -1, stun = 0;
+  const ev = run(s, 120, (i) => (i === 0 ? press('d') : inp()), (i) => {
+    const D = s.f[1];
+    if (D.state === 'blockstun' && blockAt < 0) { blockAt = i; stun = D.stun; }
+    return blockAt >= 0 && i === blockAt + stun - 2 ? press('t', 'n', { guard: false }) : inp({ guard: blockAt < 0 });
+  });
+  const b = first(ev, 'block');
+  assert.ok(b && b.adv >= 10, '막은 쪽 유리 ' + (b && b.adv));
+  const h = ev.find((e) => e.t === 'hit' && e.a === 1);
+  assert.ok(h && h.punish, '반격 판정');
+  assert.ok(Math.abs(h.dealt - movesOf('water').w_stab.dmg * 1.2 * STYLE_DEF.fire.taken) < 1e-9, '반격 1.2배');
+});
+
+test('공방: 헛치면 whiff 이벤트(남은 후딜)가 나옴', () => {
+  const s = setup(['fire', 'water'], 5);
+  const ev = run(s, 60, (i) => (i === 0 ? press('d') : inp()));
+  const w = first(ev, 'whiff');
+  assert.ok(w && w.move === 'f_down' && w.rec > 10);
+});

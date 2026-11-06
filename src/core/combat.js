@@ -43,13 +43,14 @@ export function applyHit(sim, A, D, r) {
     A.gainKi(dealt * 0.9); D.gainKi(dealt * 1.1); // 기 게이지: 때려도 맞아도 참
     sim.hitstop = Math.max(sim.hitstop, m.hitstop + (r.counter ? 3 : 0));
     A.hitAt = sim.frame; A.jfWin = sim.hitstop + (A.S.traits.jf || 0); // 번개 뇌속 연계 입력 구간
-    sim.emit({ t: 'hit', ...base, counter: !!r.counter, air: !!r.air, launch: !!m.launch && !r.air, combo: D.combo, dealt, ko: D.hp <= 0 });
+    sim.emit({ t: 'hit', ...base, punish: !!D.wasPunished, counter: !!r.counter, air: !!r.air, launch: !!m.launch && !r.air, combo: D.combo, dealt, ko: D.hp <= 0 });
   } else if (r.type === 'block') {
     const brk = D.takeBlock(A, m);
     A.gainKi(2); D.gainKi(4);
     sim.hitstop = Math.max(sim.hitstop, brk ? 10 : 5);
     A.vx -= Math.sin(A.yaw) * m.bpush * 0.4; A.vz -= Math.cos(A.yaw) * m.bpush * 0.4;
-    sim.emit({ t: 'block', ...base, brk });
+    // 막은 쪽 기준 유불리 (양수 = 막은 쪽이 먼저 움직임 = 반격 기회)
+    sim.emit({ t: 'block', ...base, brk, adv: brk ? 40 : (A.move ? A.move.total - A.f : 0) - D.stun });
   } else if (r.type === 'parry') {
     A.state = 'parried'; A.f = 0; A.stun = D.S.parriedStun; A.move = null;
     D.state = 'idle'; D.f = 0; D.lastGuardPress = -99; D.st = Math.min(100, D.st + 15); D.gainKi(12);
