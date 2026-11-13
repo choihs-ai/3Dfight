@@ -43,6 +43,7 @@
 <div id="turn" class="hide"><b id="turnT"></b><span id="turnBar"></span></div>
 
 <div id="controls" class="hide">
+  <div id="pcHint"><b>드래그</b> 베기 · <b>클릭</b> 찌르기 · <b>우클릭</b> 가드 · <b>WASD</b> 이동 · <b>Space</b> 회피 · <b>E</b> 기술 · <b>Q</b> 오의 <span>(J← L→ K↓ I↑ U찌르기 O하단 Shift가드)</span></div>
   <div id="joyZone"><div id="joyBase"><div id="joyHint">↑ 상대 쪽 · ↔ 옆걸음 · 튕기기 = 구르기</div><div id="joyKnob"></div></div></div>
   <div id="pad">
     <div class="side-btns">
@@ -81,7 +82,7 @@
       <button class="ui" id="stageBtn">경기장: 대나무숲 신사</button>
     </div>
     <div class="note" id="orientNote">📱 가로로 돌리면 더 넓게 볼 수 있어요</div>
-    <div class="note">PC: WASD 이동 · U 찌르기 · Y 왼쪽 베기 · I 오른쪽 베기 · O 위로 · K 아래로 · J 대각선 · L 가드 · Space 회피 · E 기술 · P 오의</div>
+    <div class="note">PC: WASD 이동 · <b>마우스 드래그</b> = 그은 방향으로 베기 · 클릭 = 찌르기 · 우클릭 꾹 = 가드 · Space 회피 · E 기술 · Q 오의<br>키보드만: J ← · L → · K ↓ · I ↑ · U 찌르기 · O 하단 · Shift 가드</div>
     <div class="note credit">캐릭터 모델: VRM1_Constraint_Twist_Sample © 2022 pixiv Inc. · Seed-san model by VirtualCast, Inc. (VRM Public License 1.0) · 모션: Mixamo</div>
     <div class="note ver" id="ver"></div>
   </div>
@@ -133,6 +134,7 @@
       <div class="it"><span class="k">베기 패드</span><span class="d">오른쪽 큰 원에서 <b>긋는 방향</b>대로 벰 — ↓ 내려치기, ← 왼쪽으로 베기, → 오른쪽으로 베기. <b>톡</b> 치면 찌르기</span></div>
       <div class="it"><span class="k">가드 꾹</span><span class="d">서서 막기 — <b>상단·중단</b>을 막음</span></div>
       <div class="it"><span class="k">가드 + 아래</span><span class="d">앉아 막기 — <b>하단</b>을 막고 <b>상단은 피함</b>. 중단에는 맞음</span></div>
+      <div class="it"><span class="k">PC</span><span class="d"><b>마우스 드래그</b> = 그은 방향으로 베기 · 클릭 = 찌르기 · 우클릭 꾹 = 가드(톡 = 패링) · WASD 이동 · Space 회피 · E 기술 · Q 오의. 키보드만: J ← · L → · K ↓ · I ↑ · U 찌르기 · O 하단 · Shift 가드</span></div>
       <div class="it"><span class="k">가드 톡</span><span class="d">맞기 직전에 누르면 <b>패링</b> — 상대가 크게 휘청임</span></div>
       <h3>검술 (앞 = 스틱 위, 뒤 = 스틱 아래, 옆 = 스틱 좌우)</h3>
       <div class="it"><span class="k">탭</span><span class="d"><span class="lv h">상단</span>찌르기 — 가장 빠름</span></div>

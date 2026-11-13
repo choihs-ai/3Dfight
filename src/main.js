@@ -24,7 +24,7 @@ try {
 const hud = new Hud();
 let game;
 const input = new PlayerInput({
-  joyZone: $('#joyZone'), joyBase: $('#joyBase'), joyKnob: $('#joyKnob'), pad: $('#pad'), slashPad: $('#slashPad'),
+  joyZone: $('#joyZone'), joyBase: $('#joyBase'), joyKnob: $('#joyKnob'), pad: $('#pad'), slashPad: $('#slashPad'), canvas: $('#c'),
   canPress: () => game.canPress(), onAnyTouch: () => Sound.init(),
 });
 game = new Game({ view, hud, input });

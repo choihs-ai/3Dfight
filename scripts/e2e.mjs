@@ -57,6 +57,27 @@ for (const [name, vp] of [['landscape', { width: 844, height: 390 }], ['portrait
   check(errors.length === 0, `${name}: 콘솔 에러 없음 ${errors.join(' | ')}`);
   await page.close();
 }
+// PC: 마우스 드래그·클릭·우클릭 가드 + 키보드 (터치 없는 데스크톱 브라우저)
+{
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  const errors = []; page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(url); await page.waitForTimeout(1500);
+  await page.click('[data-d="practice"]'); await page.click('#startBtn'); await page.click('#cards .card:nth-child(1)'); await page.click('#fightBtn');
+  await page.evaluate(() => { window.__G.freeze = true; window.__step(90); });
+  const pc = await page.evaluate(() => document.body.classList.contains('pc') && getComputedStyle(document.querySelector('#slashPad')).display === 'none' && getComputedStyle(document.querySelector('#pcHint')).display !== 'none');
+  check(pc, 'PC: 터치 조작 숨김 + 키 안내 표시');
+  const after = async (fn) => { await fn(); await page.evaluate(() => window.__step(2)); const m = await page.evaluate(() => window.__F[0].move?.id); await page.evaluate(() => window.__step(70)); return m; };
+  const drag = (x0, y0, x1, y1) => async () => { await page.mouse.move(x0, y0); await page.mouse.down(); await page.mouse.move(x1, y1, { steps: 4 }); await page.mouse.up(); };
+  check(await after(drag(640, 300, 640, 420)) === 'f_down', 'PC: 마우스 아래로 드래그 → 화염 내려찍기');
+  check(await after(drag(700, 360, 560, 360)) === 'f_slash', 'PC: 마우스 가로 드래그 → 불꽃 가로베기');
+  check(await after(async () => { await page.mouse.click(640, 360); }) === 'f_stab', 'PC: 클릭 → 찌르기');
+  check(await after(async () => { await page.keyboard.press('k'); }) === 'f_down', 'PC: K → 내려찍기');
+  await page.mouse.move(640, 360); await page.mouse.down({ button: 'right' }); await page.evaluate(() => window.__step(3));
+  const g = await page.evaluate(() => window.__F[0].guard); await page.mouse.up({ button: 'right' });
+  check(g, 'PC: 우클릭 꾹 → 가드');
+  check(errors.length === 0, 'PC: 에러 없음 ' + errors.join(' | '));
+  await page.close();
+}
 // CPU vs CPU 자동 대전 (?auto)
 for (const lv of ['easy', 'normal', 'hard']) {
   const { page, errors } = await open('?auto=' + lv, { width: 844, height: 390 });

@@ -208,3 +208,13 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block}
 #turn.bad b{color:#ffb0a0;text-shadow:0 0 14px #ff4a2a,0 2px 3px #000}
 #turn.bad span{background:linear-gradient(90deg,#ff4a2a,#ffb0a0);box-shadow:0 0 8px #ff4a2a}
 @keyframes turnPop{from{transform:scale(1.5);opacity:0}to{transform:scale(1);opacity:1}}
+
+/* PC(마우스): 터치 스틱·베기 패드·가드·회피 버튼을 숨기고 하단에 키 안내 */
+#pcHint{display:none}
+body.pc #joyZone,body.pc #slashPad,body.pc .btn.g,body.pc .btn.r{display:none}
+body.pc #pcHint{display:block;position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom) + 10px);transform:translateX(-50%);padding:6px 14px;border-radius:10px;background:rgba(8,10,20,.55);font-size:12px;font-weight:700;white-space:nowrap;opacity:.85;pointer-events:none}
+body.pc #pcHint b{color:var(--el,#9cf)}
+body.pc #pcHint span{opacity:.6;font-weight:600}
+body.pc #pad{bottom:calc(env(safe-area-inset-bottom) + 46px)}
+#mfx{position:fixed;inset:0;z-index:4;pointer-events:none}
+body.pc canvas#c{cursor:crosshair}

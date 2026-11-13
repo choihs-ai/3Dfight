@@ -1,9 +1,20 @@
 // 플레이어 입력 (터치 스틱 + 베기 패드 + 가드/회피 버튼 + 키보드) → 프레임마다 FrameInput 하나로 묶어서 sim에 전달
 import { classify } from '../core/moves.js';
 
+// 긋기 방향 → 베기 종류 (터치 패드와 마우스 드래그 공통). 화면 좌표(dx 오른쪽+, dy 아래+)
+// 엄지·마우스로 그으면 살짝 비스듬해지므로 아래 판정을 넓게: 수직 ±35° = 내려치기, 그 바깥 사선 = 하단베기
+export function gestureOf(dx, dy) {
+  const ang = Math.atan2(-dy, dx), deg = (ang * 180) / Math.PI;
+  let g;
+  if (Math.abs(deg) <= 28 || Math.abs(deg) >= 152) g = 'h';
+  else if (deg > 0) g = 'u';
+  else g = deg <= -55 && deg >= -125 ? 'd' : 'l';
+  return { g, ang };
+}
+
 export class PlayerInput {
   // canPress(): 공격 입력을 받을 수 있는 상태인지 (대전 중 & 일시정지 아님)
-  constructor({ joyZone, joyBase, joyKnob, pad, slashPad, canPress, onAnyTouch }) {
+  constructor({ joyZone, joyBase, joyKnob, pad, slashPad, canvas, canPress, onAnyTouch }) {
     this.canPress = canPress;
     this.keys = {};
     this.joy = { id: null, cx: 0, cy: 0, x: 0, y: 0 };
@@ -23,6 +34,12 @@ export class PlayerInput {
     });
 
     this.initSlashPad(slashPad, touch);
+    if (canvas) this.initMouse(canvas, touch);
+    // PC(마우스)면 화면 터치 조작을 숨김, 터치하면 다시 보임
+    const pcMode = (on) => document.body.classList.toggle('pc', on);
+    const touchDev = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    try { pcMode(!touchDev && matchMedia('(hover: hover) and (pointer: fine)').matches); } catch (_) { /* */ }
+    addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') pcMode(false); else if (e.pointerType === 'mouse' && !touchDev) pcMode(true); }, true);
 
     const jz = joyZone, jb = joyBase, jk = joyKnob, joy = this.joy;
     jz.addEventListener('pointerdown', (e) => {
@@ -57,19 +74,20 @@ export class PlayerInput {
     };
     jz.addEventListener('pointerup', joyEnd); jz.addEventListener('pointercancel', joyEnd);
 
-    const KMAP = { u: ['t', 0], i: ['h', 0], y: ['h', Math.PI], o: ['u', 0], k: ['d', 0], j: ['l', 0] };
+    // PC 키: 오른손 J ← · L → · K ↓ · I ↑ · U 찌르기 · O 하단, 왼손 WASD 이동 · Shift 가드 · Space 회피 · E 기술 · Q 오의
+    const KMAP = { u: ['t', 0], j: ['h', Math.PI], l: ['h', 0], i: ['u', Math.PI / 2], k: ['d', -Math.PI / 2], o: ['l', -Math.PI / 4] };
     addEventListener('keydown', (e) => {
       const k = e.key.toLowerCase();
       if (this.keys[k]) return;
       this.keys[k] = true;
       if (KMAP[k]) this.pressAtk(KMAP[k][0], KMAP[k][1]);
       if (k === ' ') { this.roll = true; e.preventDefault(); }
-      if (k === 'p') this.ougi = true;
+      if (k === 'p' || k === 'q') this.ougi = true;
       if (k === 'e') this.sk = true;
-      if (k === 'l' || k === 'shift') this.setGuard(true);
+      if (k === 'shift' || k === 'f') this.setGuard(true);
       if (k === 'escape' && this.onEscape) this.onEscape();
     });
-    addEventListener('keyup', (e) => { const k = e.key.toLowerCase(); this.keys[k] = false; if (k === 'l' || k === 'shift') this.setGuard(false); });
+    addEventListener('keyup', (e) => { const k = e.key.toLowerCase(); this.keys[k] = false; if ((k === 'shift' || k === 'f') && !this.mouseGuard) this.setGuard(false); });
     addEventListener('blur', () => { this.keys = {}; this.setGuard(false); });
   }
   stick() {
@@ -112,12 +130,7 @@ export class PlayerInput {
       const [x, y] = local(e), dx = x - st.x, dy = y - st.y, len = Math.hypot(dx, dy);
       if (len < TH()) return;
       st.fired = true;
-      const ang = Math.atan2(-dy, dx), deg = (ang * 180) / Math.PI;
-      let g;
-      // 엄지로 그으면 살짝 비스듬해지므로 아래 판정을 넓게: 수직 ±35° = 내려치기, 그 바깥 사선 = 하단베기
-      if (Math.abs(deg) <= 28 || Math.abs(deg) >= 152) g = 'h';
-      else if (deg > 0) g = 'u';
-      else g = deg <= -55 && deg >= -125 ? 'd' : 'l';
+      const { g, ang } = gestureOf(dx, dy);
       this.pressAtk(g, ang);
       fx('stroke', st.x, st.y, Math.max(len, el.clientWidth * 0.45), ang);
     });
@@ -127,6 +140,42 @@ export class PlayerInput {
       st.id = null; el.classList.remove('on');
     };
     el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+  }
+  // 마우스: 왼쪽 버튼 드래그 = 그은 방향으로 베기, 클릭 = 찌르기, 오른쪽 버튼 꾹 = 가드 (톡 = 패링)
+  initMouse(cv, touch) {
+    const st = { on: false, x: 0, y: 0, fired: false }, TH = 26;
+    const layer = document.createElement('div'); layer.id = 'mfx'; document.body.appendChild(layer);
+    const fx = (cls, x, y, len = 0, ang = 0) => {
+      const d = document.createElement('div');
+      d.className = cls; d.style.left = x + 'px'; d.style.top = y + 'px';
+      if (len) { d.style.width = len + 'px'; d.style.transform = `rotate(${-ang}rad)`; }
+      layer.appendChild(d); setTimeout(() => d.remove(), 400);
+    };
+    cv.addEventListener('contextmenu', (e) => e.preventDefault());
+    cv.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'mouse') return;
+      touch();
+      if (e.button === 2) { this.mouseGuard = true; this.setGuard(true); e.preventDefault(); return; }
+      if (e.button !== 0) return;
+      st.on = true; st.x = e.clientX; st.y = e.clientY; st.fired = false;
+      try { cv.setPointerCapture(e.pointerId); } catch (_) { /* */ }
+    });
+    cv.addEventListener('pointermove', (e) => {
+      if (!st.on || st.fired || e.pointerType !== 'mouse') return;
+      const dx = e.clientX - st.x, dy = e.clientY - st.y, len = Math.hypot(dx, dy);
+      if (len < TH) return;
+      st.fired = true;
+      const { g, ang } = gestureOf(dx, dy);
+      this.pressAtk(g, ang);
+      fx('stroke', st.x, st.y, Math.max(len, 160), ang);
+    });
+    const up = (e) => {
+      if (e.pointerType !== 'mouse') return;
+      if (e.button === 2) { this.mouseGuard = false; if (!this.keys.shift && !this.keys.f) this.setGuard(false); return; }
+      if (st.on && !st.fired && e.type === 'pointerup') { this.pressAtk('t'); fx('tapfx', st.x, st.y); }
+      st.on = false;
+    };
+    cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
   }
   setGuard(on) { if (on && !this.guard) this.gp = true; this.guard = on; }
   clear() { this.btns.length = 0; this.guard = false; this.gp = false; this.roll = false; this.rollDir = null; this.ougi = false; this.sk = false; this.score = -1; }
